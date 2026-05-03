@@ -627,6 +627,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
                 this.dotSkipped = false;
                 this.dotNumber++;
+                // TODO: Move the dot skip such that it skips (0, 0) on even frames to try to pass 10-even_odd_timing.nes
                 if (this.dotNumber == DOTS_PER_SCANLINE - 1 && this.isPreRenderScanline() && this.frameParity.isOdd() && this.isRenderingEnabled() && this.doOddFrameDotSkipping) {
                     this.dotNumber++;
                 }
