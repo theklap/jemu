@@ -420,6 +420,9 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         }
     }
 
+    // TODO: The OAM bus has a 16-bit address bus. During OAM scan, the PPU reads only the X and Y bytes to determine whether they are in range.
+    // During sprite fetching, the PPU fetches the attribute and tile index bytes at once.
+    // Store only the X and Y bytes in the sprite buffer alongside the OAM index from which to calculate the attribute and tile index bytes fetch addresses.
     private void tickOamScan() {
         int spriteY = this.getOamByte(0xFE00 + (this.scannedEntries * 4));
         int spriteX = this.getOamByte(0xFE00 + (this.scannedEntries * 4) + 1);
