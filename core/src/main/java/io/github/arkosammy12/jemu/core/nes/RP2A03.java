@@ -48,6 +48,7 @@ public class RP2A03<E extends NESEmulator> implements Bus {
     private int scheduleDmcDmaHaltCountdown;
     private DmcDmaStep dmcDmaStep = DmcDmaStep.NONE;
     private int dmcDmaAddress;
+	private boolean dmcDmaRequestPending;
 
     private int internalDataBus;
 
@@ -119,77 +120,103 @@ public class RP2A03<E extends NESEmulator> implements Bus {
     }
 
     public void cycleHalf() {
-        boolean isHalted = this.cpu.isHalted();
-        switch (this.cpu.getHalfCyclePhase()) {
-            case PHI_1 -> this.cpu.cycle();
-            case PHI_2 -> {
-                this.cpu.cycle();
+		boolean isHalted = this.cpu.isHalted();
 
-                this.controller.cycle();
+		switch (this.cpu.getHalfCyclePhase()) {
+			case PHI_1 -> this.cpu.cycle();
+			case PHI_2 -> {
+				this.cpu.cycle();
 
-                if (this.scheduleDmcDmaHaltCountdown > 0) {
-                    this.scheduleDmcDmaHaltCountdown--;
-                    if (this.scheduleDmcDmaHaltCountdown <= 0) {
-                        this.startDmcDma();
-                    }
-                }
+				this.controller.cycle();
 
-                this.apu.cycleHalf();
-                this.cycleDma(isHalted);
+				if (this.scheduleDmcDmaHaltCountdown > 0) {
+					this.scheduleDmcDmaHaltCountdown--;
 
-                this.apuHalfCycleType = this.apuHalfCycleType.getOpposite();
-            }
-        }
-    }
+					if (this.scheduleDmcDmaHaltCountdown <= 0) {
+						// If the start of DMC DMA coincides with the second-to-last or last OAM DMA GET, delay the former by an extra cycle
+						if (this.apuHalfCycleType == APUHalfCycleType.GET && this.oamDmaCurrentData < 0 && (this.oamDmaTransferredBytes == 254 || this.oamDmaTransferredBytes == 255)) {
+							this.scheduleDmcDmaHaltCountdown = 1;
+						} else {
+							this.startDmcDma();
+						}
+					}
+				}
+
+				this.apu.cycleHalf();
+				this.cycleDma(isHalted);
+
+				this.apuHalfCycleType = this.apuHalfCycleType.getOpposite();
+			}
+		}
+	}
 
     private void startDmcDma() {
-        this.dmcDmaStep = DmcDmaStep.DUMMY;
-    }
+		this.scheduleDmcDmaHaltCountdown = 0;
+		this.dmcDmaStep = DmcDmaStep.DUMMY;
+	}
 
     private void cycleDma(boolean isHalted) {
-        if (!((this.oamDmaTransferredBytes < 256 || this.dmcDmaStep != DmcDmaStep.NONE) && isHalted)) {
-            return;
-        }
-        // TODO: Proper bus isolation in the specific case (which I still don't yet understand) that makes the DMA units not update the data bus
-        switch (this.apuHalfCycleType) {
-            case GET -> {
-                switch (this.dmcDmaStep) {
-                    case NONE -> this.tickOamDmaGetIfOngoing();
-                    case DUMMY -> {
-                        this.dmcDmaStep = DmcDmaStep.GET;
-                        this.tickOamDmaGetIfOngoing();
-                    }
-                    case GET -> {
-                        this.apu.writeDmcDma(this.emulator.getCpuBus().readByte(this.dmcDmaAddress));
-                        this.dmcDmaStep = DmcDmaStep.NONE;
-                    }
-                }
-            }
-            case PUT -> {
-                if (this.dmcDmaStep == DmcDmaStep.DUMMY) {
-                    this.dmcDmaStep = DmcDmaStep.GET;
-                }
-                if (this.oamDmaCurrentData >= 0 && this.oamDmaTransferredBytes < 256) {
-                    this.emulator.getCpuBus().writeByte(OAMDATA_ADDR, this.oamDmaCurrentData);
-                    this.oamDmaTransferredBytes++;
-                    this.oamDmaCurrentData = -1;
-                }
-            }
-        }
-    }
+		if (!((this.oamDmaTransferredBytes < 256 || this.dmcDmaStep != DmcDmaStep.NONE) && isHalted)) {
+			return;
+		}
+		// TODO: Proper bus isolation in the specific case (which I still don't yet understand) that makes the DMA units not update the data bus
+		switch (this.apuHalfCycleType) {
+			case GET -> {
+				switch (this.dmcDmaStep) {
+					case NONE -> this.tickOamDmaGetIfOngoing();
+					case DUMMY -> {
+						// Transition DMC DMA to its alignment cycle if there's no ongoing OAM DMA
+						if (this.oamDmaTransferredBytes < 256) {
+							this.tickOamDmaGetIfOngoing();
+							this.dmcDmaStep = DmcDmaStep.GET;
+						} else {
+							this.dmcDmaStep = DmcDmaStep.ALIGNMENT;
+						}
+					}
+					// Needed so DMC DMA doesn't perform its read immediately after its dummy cycle whenever there's no OAM DMA by this point
+					case ALIGNMENT -> this.dmcDmaStep = DmcDmaStep.GET;
+					case GET -> {
+						this.apu.writeDmcDma(this.emulator.getCpuBus().readByte(this.dmcDmaAddress));
+						this.dmcDmaStep = DmcDmaStep.NONE;
+						this.dmcDmaRequestPending = false;
+					}
+				}
+			}
+			case PUT -> {
+				boolean finalOamPut = this.oamDmaCurrentData >= 0 && this.oamDmaTransferredBytes == 255;
+				if (this.dmcDmaStep == DmcDmaStep.DUMMY && !finalOamPut) {
+					// If DMC DMA starts by this point in the OAM DMA transfer, this cycle is the DMC DMA alignment cycle.
+					// Do not transition DMC DMA to its GET step yet
+					if (!(this.dmcDmaRequestPending && this.oamDmaCurrentData >= 0 && this.oamDmaTransferredBytes == 254)) {
+						this.dmcDmaStep = DmcDmaStep.GET;
+					}
+				}
+
+				if (this.dmcDmaStep == DmcDmaStep.ALIGNMENT) {
+					this.dmcDmaStep = DmcDmaStep.GET;
+				}
+
+				if (this.oamDmaCurrentData >= 0 && this.oamDmaTransferredBytes < 256) {
+					this.emulator.getCpuBus().writeByte(OAMDATA_ADDR, this.oamDmaCurrentData);
+					this.oamDmaTransferredBytes++;
+					this.oamDmaCurrentData = -1;
+				}
+			}
+		}
+	}
 
     // Assumes that the CPU is cycled before the DMA units
-    private boolean isDmaUsingExternalBusOnThisCycle() {
-        return switch (this.apuHalfCycleType) {
-            case GET -> switch (this.dmcDmaStep) {
-                case NONE, DUMMY -> this.isOamDmaGetCycle();
-                case GET -> this.cpu.isHalted();
-            };
-            case PUT -> switch (this.dmcDmaStep) {
-                case NONE, DUMMY, GET -> this.isOamDmaPutCycle();
-            };
-        };
-    }
+	private boolean isDmaUsingExternalBusOnThisCycle() {
+		return switch (this.apuHalfCycleType) {
+			case GET -> switch (this.dmcDmaStep) {
+				case NONE, DUMMY, ALIGNMENT -> this.isOamDmaGetCycle();
+				case GET -> this.cpu.isHalted();
+			};
+			case PUT -> switch (this.dmcDmaStep) {
+				case NONE, DUMMY, ALIGNMENT, GET -> this.isOamDmaPutCycle();
+			};
+		};
+	}
 
     private boolean isOamDmaGetCycle() {
         return this.oamDmaTransferredBytes < 256 && this.cpu.isHalted();
@@ -200,33 +227,31 @@ public class RP2A03<E extends NESEmulator> implements Bus {
     }
 
     private void tickOamDmaGetIfOngoing() {
-        if (this.oamDmaTransferredBytes < 256) {
-            this.oamDmaCurrentData = this.emulator.getCpuBus().readByte((this.oamDmaSourceAddressHighByte << 8) | (this.oamDmaTransferredBytes & 0xFF));
-        }
-    }
+		if (this.oamDmaTransferredBytes < 256) {
+			this.oamDmaCurrentData = this.emulator.getCpuBus().readByte((this.oamDmaSourceAddressHighByte << 8) | (this.oamDmaTransferredBytes & 0xFF));
+		}
+	}
 
     void triggerDmcDma(NESAPU.DmcDmaType dmcDmaType, int address) {
-        this.dmcDmaAddress = address & 0xFFFF;
-        switch (dmcDmaType) {
-            case LOAD -> {
-                if (this.scheduleDmcDmaHaltCountdown <= 0 && this.dmcDmaStep == DmcDmaStep.NONE) {
-                    this.scheduleDmcDmaHaltCountdown = switch (this.apuHalfCycleType) {
-                        case GET -> 4;
-                        case PUT -> 3;
-                    };
-                }
-            }
-            case RELOAD -> {
-                if (this.scheduleDmcDmaHaltCountdown <= 0 && this.dmcDmaStep == DmcDmaStep.NONE) {
-                    this.scheduleDmcDmaHaltCountdown = switch (this.apuHalfCycleType) {
-                        case GET -> 2;
-                        case PUT -> 1;
-                    };
-                }
-            }
-        }
-    }
+		// Do not replace or stack an already pending or ongoing DMC DMA transfer.
+		if (this.dmcDmaRequestPending || this.scheduleDmcDmaHaltCountdown > 0 || this.dmcDmaStep != DmcDmaStep.NONE) {
+			return;
+		}
 
+		this.dmcDmaRequestPending = true;
+		this.dmcDmaAddress = address & 0xFFFF;
+		this.scheduleDmcDmaHaltCountdown = switch (dmcDmaType) {
+			case LOAD -> switch (this.apuHalfCycleType) {
+				case GET -> 4;
+				case PUT -> 3;
+			};
+			case RELOAD -> switch (this.apuHalfCycleType) {
+				case GET -> 2;
+				case PUT -> 1;
+			};
+		};
+	}
+	
     public boolean getIRQSignal() {
         return this.apu.getIRQSignal();
     }
@@ -248,9 +273,11 @@ public class RP2A03<E extends NESEmulator> implements Bus {
     }
 
     private enum DmcDmaStep {
-        NONE,
-        DUMMY,
-        GET
-    }
+		NONE,
+		DUMMY,
+		// Alignment state needed for already finished OAM DMA while DMC DMA still needs an alignment cycle
+		ALIGNMENT,
+		GET
+	}
 
 }
