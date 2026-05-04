@@ -55,3 +55,8 @@ Run with the `-DskipTests` flag to omit running the automated unit tests.
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+## Special thanks
+
+- Matt Sutton(sutton.matthew at gmail): Fix OAM DMA + DMC DMA timings on the NES core.
+
