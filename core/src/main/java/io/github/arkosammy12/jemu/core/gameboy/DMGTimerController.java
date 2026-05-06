@@ -4,9 +4,12 @@ import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import io.github.arkosammy12.jemu.core.common.Bus;
 import io.github.arkosammy12.jemu.core.cpu.SM83;
 
-import static io.github.arkosammy12.jemu.core.gameboy.DMGMMIOBus.*;
-
 public class DMGTimerController<E extends GameBoyEmulator> implements Bus {
+
+    public static final int DIV_ADDR = 0xFF04;
+    public static final int TIMA_ADDR = 0xFF05;
+    public static final int TMA_ADDR = 0xFF06;
+    public static final int TAC_ADDR = 0xFF07;
 
     protected final E emulator;
 
@@ -131,7 +134,8 @@ public class DMGTimerController<E extends GameBoyEmulator> implements Bus {
     }
 
     protected void triggerInterrupt() {
-        this.emulator.getMMIOBus().setIF(this.emulator.getMMIOBus().getIF() | SM83.TIMER_MASK);
+        DMGBus<?> bus = this.emulator.getBus();
+        bus.setIF(bus.getIF() | SM83.TIMER_MASK);
     }
 
     public void onAPUPowerOn() {

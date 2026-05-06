@@ -4,10 +4,10 @@ import io.github.arkosammy12.jemu.core.common.Bus;
 import io.github.arkosammy12.jemu.core.cpu.SM83;
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 
-import static io.github.arkosammy12.jemu.core.gameboy.DMGMMIOBus.SB_ADDR;
-import static io.github.arkosammy12.jemu.core.gameboy.DMGMMIOBus.SC_ADDR;
-
 public class DMGSerialController<E extends GameBoyEmulator> implements Bus {
+
+    public static final int SB_ADDR = 0xFF01;
+    public static final int SC_ADDR = 0xFF02;
 
     private static final int BIT_2_MASK = 1 << 2;
     private static final int BIT_7_MASK = 1 << 7;
@@ -91,7 +91,8 @@ public class DMGSerialController<E extends GameBoyEmulator> implements Bus {
     }
 
     private void triggerSerialInterrupt() {
-        this.emulator.getMMIOBus().setIF(this.emulator.getMMIOBus().getIF() | SM83.SERIAL_MASK);
+        DMGBus<?> bus = this.emulator.getBus();
+        bus.setIF(bus.getIF() | SM83.SERIAL_MASK);
     }
 
 }

@@ -2,8 +2,6 @@ package io.github.arkosammy12.jemu.core.gameboycolor;
 
 import io.github.arkosammy12.jemu.core.gameboy.DMGAPU;
 
-import static io.github.arkosammy12.jemu.core.gameboy.DMGMMIOBus.WAVERAM_START;
-
 public class CGBAPU<E extends GameBoyColorEmulator> extends DMGAPU<E> {
 
     public CGBAPU(E emulator) {

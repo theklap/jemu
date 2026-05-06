@@ -11,15 +11,13 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
     private CGBPPU<?> ppu;
     private CGBAPU<?> apu;
 
-    private CGBMMMIOBus<?> mmioBus;
     private CGBTimerController<?> timerController;
+
+    private boolean dmgCompatibilityMode;
+    private int key1;
 
     public GameBoyColorEmulator(GameBoyHost host) {
         super(host);
-    }
-
-    public boolean isDmgCompatibilityMode() {
-        return this.getMMIOBus().isDmgCompatibilityMode();
     }
 
     protected CGBSM83<?> createCpu() {
@@ -62,17 +60,6 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
         return this.apu;
     }
 
-    protected CGBMMMIOBus<?> createMmioBus() {
-        this.mmioBus = new CGBMMMIOBus<>(this);
-        return this.mmioBus;
-    }
-
-    @Override
-    public CGBMMMIOBus<?> getMMIOBus() {
-        return this.mmioBus;
-    }
-
-
     protected CGBTimerController<?> createTimerController() {
         this.timerController = new CGBTimerController<>(this);
         return this.timerController;
@@ -80,6 +67,14 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
 
     public CGBTimerController<?> getTimerController() {
         return this.timerController;
+    }
+
+    public CPUSpeed getCpuSpeed() {
+        return (this.key1 & 0x80) != 0 ? CPUSpeed.DOUBLE_SPEED : CPUSpeed.SINGLE_SPEED;
+    }
+
+    public boolean isDmgCompatibilityMode() {
+        return this.dmgCompatibilityMode;
     }
 
     @Override
@@ -90,10 +85,9 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
         GameBoyCartridge cartridge = this.getCartridge();
         CGBBus<?> bus = this.getBus();
         CGBTimerController<?> timerController = this.getTimerController();
-        CGBMMMIOBus<?> mmio = this.getMMIOBus();
         DMGSerialController<?> serialController = this.getSerialController();
 
-        if (mmio.getCpuSpeed() == CGBMMMIOBus.CPUSpeed.SINGLE_SPEED) {
+        if ((this.key1 & 0x80) == 0) {
             boolean haltCpu = bus.haltCpu();
             if (!haltCpu) {
                 cpu.cycle();
@@ -110,7 +104,7 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
             apu.cycle(apuFrameSequencerTick);
             serialController.cycle();
             cartridge.cycle();
-            bus.cycleOamDMA();
+            bus.cycleOAMDMA();
             bus.cycleVDMA();
         } else {
             boolean haltCpu = bus.haltCpu();
@@ -144,8 +138,8 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
 
             cartridge.cycle();
 
-            bus.cycleOamDMA();
-            bus.cycleOamDMA();
+            bus.cycleOAMDMA();
+            bus.cycleOAMDMA();
 
             bus.cycleVDMA();
         }
@@ -153,14 +147,44 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
 
     @Override
     public boolean isSpeedSwitchRequested() {
-        return this.getMMIOBus().isSwitchSpeedArmed();
+        return this.isSwitchSpeedArmed();
     }
 
     @Override
     public void onStopInstructionWithSpeedSwitch(boolean resetDiv) {
         this.onStopInstruction(resetDiv);
-        if (this.getMMIOBus().isSwitchSpeedArmed()) {
-            this.getMMIOBus().switchCpuSpeed();
+        if (this.isSwitchSpeedArmed()) {
+            this.key1 ^= 0x80;
+            this.key1 &= ~1;
+            this.key1 &= 0xFF;
         }
     }
+
+    public void writeKey0(int value) {
+        if (this.getBus().isBootRomEnabled()) {
+            this.dmgCompatibilityMode = (value & 0b100) != 0;
+        }
+    }
+
+    public void writeKey1(int value) {
+        this.key1 = (this.key1 & 0x80) | (value & 1);
+    }
+
+    public int readKey0() {
+        return this.dmgCompatibilityMode ? 0xFF : 0xFB;
+    }
+
+    public int readKey1() {
+        return this.key1 | 0b01111110;
+    }
+
+    public boolean isSwitchSpeedArmed() {
+        return (this.key1 & 1) != 0;
+    }
+
+    public enum CPUSpeed {
+        SINGLE_SPEED,
+        DOUBLE_SPEED
+    }
+
 }

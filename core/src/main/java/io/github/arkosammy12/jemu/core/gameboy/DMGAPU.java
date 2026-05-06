@@ -8,9 +8,35 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Optional;
 
-import static io.github.arkosammy12.jemu.core.gameboy.DMGMMIOBus.*;
-
 public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> implements Bus {
+
+    public static final int NR10_ADDR = 0xFF10;
+    public static final int NR11_ADDR = 0xFF11;
+    public static final int NR12_ADDR = 0xFF12;
+    public static final int NR13_ADDR = 0xFF13;
+    public static final int NR14_ADDR = 0xFF14;
+
+    public static final int NR21_ADDR = 0xFF16;
+    public static final int NR22_ADDR = 0xFF17;
+    public static final int NR23_ADDR = 0xFF18;
+    public static final int NR24_ADDR = 0xFF19;
+    public static final int NR30_ADDR = 0xFF1A;
+    public static final int NR31_ADDR = 0xFF1B;
+    public static final int NR32_ADDR = 0xFF1C;
+    public static final int NR33_ADDR = 0xFF1D;
+    public static final int NR34_ADDR = 0xFF1E;
+
+    public static final int NR41_ADDR = 0xFF20;
+    public static final int NR42_ADDR = 0xFF21;
+    public static final int NR43_ADDR = 0xFF22;
+    public static final int NR44_ADDR = 0xFF23;
+    public static final int NR50_ADDR = 0xFF24;
+    public static final int NR51_ADDR = 0xFF25;
+    public static final int NR52_ADDR = 0xFF26;
+
+
+    public static final int WAVERAM_START = 0xFF30;
+    public static final int WAVERAM_END = 0xFF3F;
 
     private static final int UNUSED_BITS_NR10 = 0b10000000;
     private static final int UNUSED_BITS_NRX1 = 0b00111111;

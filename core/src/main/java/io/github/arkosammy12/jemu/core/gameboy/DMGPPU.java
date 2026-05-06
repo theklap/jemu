@@ -6,18 +6,28 @@ import io.github.arkosammy12.jemu.core.common.Processor;
 import io.github.arkosammy12.jemu.core.cpu.SM83;
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
-import org.tinylog.Logger;
 
 import java.util.Arrays;
 import java.util.LinkedList;
 
 import static io.github.arkosammy12.jemu.core.gameboy.DMGBus.*;
-import static io.github.arkosammy12.jemu.core.gameboy.DMGMMIOBus.*;
 
 public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> implements Bus {
 
     private static final int WIDTH = 160;
     private static final int HEIGHT = 144;
+
+    public static final int LCDC_ADDR = 0xFF40;
+    public static final int STAT_ADDR = 0xFF41;
+    public static final int SCY_ADDR = 0xFF42;
+    public static final int SCX_ADDR = 0xFF43;
+    public static final int LY_ADDR = 0xFF44;
+    public static final int LYC_ADDR = 0xFF45;
+    public static final int BGP_ADDR = 0xFF47;
+    public static final int OBP0_ADDR = 0xFF48;
+    public static final int OBP1_ADDR = 0xFF49;
+    public static final int WY_ADDR = 0xFF4A;
+    public static final int WX_ADDR = 0xFF4B;
 
     private static final int CYCLES_PER_SCANLINE = 456;
     private static final int SCANLINES_PER_FRAME = 154;
@@ -842,13 +852,13 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     }
 
     private void triggerVBlankInterrupt() {
-        int IF = this.emulator.getMMIOBus().getIF();
-        this.emulator.getMMIOBus().setIF(Processor.setBit(IF, SM83.VBLANK_MASK));
+        DMGBus<?> bus = this.emulator.getBus();
+        bus.setIF(bus.getIF() | SM83.VBLANK_MASK);
     }
 
     private void triggerStatInterrupt() {
-        int IF = this.emulator.getMMIOBus().getIF();
-        this.emulator.getMMIOBus().setIF(Processor.setBit(IF, SM83.LCD_MASK));
+        DMGBus<?> bus = this.emulator.getBus();
+        bus.setIF(bus.getIF() | SM83.LCD_MASK);
     }
 
     private static int createSpriteBufferEntry(int spriteY, int spriteX, int tileIndex, int spriteAttributes) {

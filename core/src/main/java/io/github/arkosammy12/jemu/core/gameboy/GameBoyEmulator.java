@@ -19,7 +19,6 @@ public class GameBoyEmulator implements Emulator, SM83.SystemBus {
     private final DMGAPU<?> apu;
     private final GameBoyJoypad<?> joypad;
 
-    private final DMGMMIOBus<?> mmioBus;
     private final DMGTimerController<?> timerController;
     private final DMGSerialController<?> serialController;
 
@@ -34,7 +33,6 @@ public class GameBoyEmulator implements Emulator, SM83.SystemBus {
         this.ppu = this.createPpu();
         this.apu = this.createApu();
 
-        this.mmioBus = this.createMmioBus();
         this.timerController = this.createTimerController();
         this.serialController = this.createSerialController();
 
@@ -55,10 +53,6 @@ public class GameBoyEmulator implements Emulator, SM83.SystemBus {
 
     protected DMGAPU<?> createApu() {
         return new DMGAPU<>(this);
-    }
-
-    protected DMGMMIOBus<?> createMmioBus() {
-        return new DMGMMIOBus<>(this);
     }
 
     protected DMGTimerController<?> createTimerController() {
@@ -102,9 +96,11 @@ public class GameBoyEmulator implements Emulator, SM83.SystemBus {
         return this.cartridge;
     }
 
+    /*
     public DMGMMIOBus<?> getMMIOBus() {
         return this.mmioBus;
     }
+     */
 
     public DMGTimerController<?> getTimerController() {
         return this.timerController;
@@ -137,7 +133,7 @@ public class GameBoyEmulator implements Emulator, SM83.SystemBus {
         this.apu.cycle(apuFrameSequencerTick);
         this.serialController.cycle();
         this.cartridge.cycle();
-        this.bus.cycleOamDMA();
+        this.bus.cycleOAMDMA();
     }
 
     @Override
@@ -163,12 +159,12 @@ public class GameBoyEmulator implements Emulator, SM83.SystemBus {
 
     @Override
     public int getIE() {
-        return this.mmioBus.getIE();
+        return this.bus.getIE();
     }
 
     @Override
     public void setIF(int value) {
-        this.mmioBus.setIF(value);
+        this.bus.setIF(value);
     }
 
     @Override
@@ -185,7 +181,7 @@ public class GameBoyEmulator implements Emulator, SM83.SystemBus {
 
     @Override
     public int getIF() {
-        return this.mmioBus.getIF();
+        return this.bus.getIF();
     }
 
 

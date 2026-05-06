@@ -5,9 +5,15 @@ import io.github.arkosammy12.jemu.core.gameboy.DMGPPU;
 
 import static io.github.arkosammy12.jemu.core.gameboy.DMGBus.VRAM_END;
 import static io.github.arkosammy12.jemu.core.gameboy.DMGBus.VRAM_START;
-import static io.github.arkosammy12.jemu.core.gameboycolor.CGBMMMIOBus.*;
 
 public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
+
+    public static final int VBK_ADDR = 0xFF4F;
+    public static final int BGPI_ADDR = 0xFF68;
+    public static final int BGPD = 0xFF69;
+    public static final int OBPI = 0xFF6A;
+    public static final int OBPD = 0xFF6B;
+    public static final int OPRI_ADDR = 0xFF6C;
 
     private VRAMBank vramBank = VRAMBank.BANK_0;
 
@@ -48,11 +54,11 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
             }
         } else {
             return switch (address) {
-                case VBK -> switch (vramBank) {
+                case VBK_ADDR -> switch (vramBank) {
                     case BANK_0 -> 0xFE;
                     case BANK_1 -> 0xFF;
                 };
-                case BGPI -> this.backgroundPaletteIndex | 0b01000000;
+                case BGPI_ADDR -> this.backgroundPaletteIndex | 0b01000000;
                 case BGPD -> {
                     if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
                         yield this.bgPaletteRam[this.getBgPaletteAddress()];
@@ -68,7 +74,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                         yield 0xFF;
                     }
                 }
-                case OPRI -> this.objectPriorityMode ? 0xFF : 0xFE;
+                case OPRI_ADDR -> this.objectPriorityMode ? 0xFF : 0xFE;
                 default -> super.readByte(address);
             };
         }
@@ -85,8 +91,8 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
             }
         } else {
             switch (address) {
-                case VBK -> this.vramBank = (value & 1) != 0 ? VRAMBank.BANK_1 : VRAMBank.BANK_0;
-                case BGPI -> this.backgroundPaletteIndex = value & 0xFF;
+                case VBK_ADDR -> this.vramBank = (value & 1) != 0 ? VRAMBank.BANK_1 : VRAMBank.BANK_0;
+                case BGPI_ADDR -> this.backgroundPaletteIndex = value & 0xFF;
                 case BGPD -> {
                     if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
                         this.bgPaletteRam[this.getBgPaletteAddress()] = value & 0xFF;
@@ -104,7 +110,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                         this.incrementObjPaletteAddress();
                     }
                 }
-                case OPRI -> this.objectPriorityMode = (value & 1) != 0;
+                case OPRI_ADDR -> this.objectPriorityMode = (value & 1) != 0;
                 default -> super.writeByte(address, value);
             }
         }

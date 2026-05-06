@@ -31,7 +31,7 @@ public class CGBTimerController<E extends GameBoyColorEmulator> extends DMGTimer
         boolean divBit4 = (this.systemClock & DIV_BIT_4_MASK) != 0;
         boolean divBit5 = (this.systemClock & DIV_BIT_5_MASK) != 0;
 
-        boolean apuFrameSequencerTick = switch (this.emulator.getMMIOBus().getCpuSpeed()) {
+        boolean apuFrameSequencerTick = switch (this.emulator.getCpuSpeed()) {
             case SINGLE_SPEED -> this.oldDivBit4 && !divBit4;
             case DOUBLE_SPEED -> this.oldDivBit5 && !divBit5;
         };

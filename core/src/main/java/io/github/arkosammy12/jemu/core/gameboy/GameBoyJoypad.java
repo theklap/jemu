@@ -6,6 +6,8 @@ import io.github.arkosammy12.jemu.core.cpu.SM83;
 
 public class GameBoyJoypad<E extends GameBoyEmulator> extends SystemController<E> {
 
+    public static final int JOYP_ADDR = 0xFF00;
+
     private static final int SELECT_BUTTONS_MASK = 1 << 5;
     private static final int SELECT_DPAD_MASK = 1 << 4;
 
@@ -37,7 +39,7 @@ public class GameBoyJoypad<E extends GameBoyEmulator> extends SystemController<E
     }
 
     public boolean isButtonHeld() {
-        return (this.readJoyP() & 0b1111) != 0b1111;
+        return (this.readJoypad() & 0b1111) != 0b1111;
     }
 
     @Override
@@ -125,7 +127,7 @@ public class GameBoyJoypad<E extends GameBoyEmulator> extends SystemController<E
         this.updateJoyP();
     }
 
-    public synchronized int readJoyP() {
+    public synchronized int readJoypad() {
         return this.joyP;
     }
 
@@ -178,14 +180,10 @@ public class GameBoyJoypad<E extends GameBoyEmulator> extends SystemController<E
         newJoypLowAnd &= (this.joyP & START_DOWN_MASK) != 0;
 
         if (originalJoypLowBitsAnd && !newJoypLowAnd) {
-            this.triggerJoyPInterrupt();
+            DMGBus<?> bus = this.emulator.getBus();
+            bus.setIF(bus.getIF() | SM83.JOYP_MASK);
         }
 
-    }
-
-    private void triggerJoyPInterrupt() {
-        int IF = this.emulator.getMMIOBus().getIF();
-        this.emulator.getMMIOBus().setIF(Processor.setBit(IF, SM83.JOYP_MASK));
     }
 
     public enum Actions implements Action {
@@ -208,6 +206,7 @@ public class GameBoyJoypad<E extends GameBoyEmulator> extends SystemController<E
         public String getLabel() {
             return this.label;
         }
+
     }
 
 }
