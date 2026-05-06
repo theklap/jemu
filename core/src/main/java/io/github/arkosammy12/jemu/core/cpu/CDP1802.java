@@ -6,8 +6,6 @@ import static io.github.arkosammy12.jemu.core.cpu.CDP1802.State.*;
 
 public class CDP1802 implements Processor {
 
-    private static final int HANDLED = 1;
-
     private final SystemBus systemBus;
     private State currentState = State.S1_RESET;
     private boolean longInstruction = false;
@@ -24,8 +22,6 @@ public class CDP1802 implements Processor {
     private int temporaryRegister; // T
     private boolean interruptEnable; // IE
     private boolean outputFlipFlop; // Q
-
-    private final boolean[] externalFlagInputs = new boolean[4];
 
     public CDP1802(SystemBus systemBus) {
         this.systemBus = systemBus;
@@ -87,10 +83,6 @@ public class CDP1802 implements Processor {
         this.outputFlipFlop = value;
     }
 
-    public void setEF(int index, boolean value) {
-        this.externalFlagInputs[index] = value;
-    }
-
     public int getD() {
         return this.accumulator;
     }
@@ -143,10 +135,6 @@ public class CDP1802 implements Processor {
         return this.outputFlipFlop;
     }
 
-    public boolean getEF(int index) {
-        return this.externalFlagInputs[index];
-    }
-
     @Override
     public int cycle() {
         switch (currentState) {
@@ -164,49 +152,49 @@ public class CDP1802 implements Processor {
     public void nextState() {
         this.currentState = switch (currentState) {
             case S1_RESET -> S1_INIT;
-            case S1_INIT, S3_INTERRUPT -> switch (this.systemBus.getDmaStatus()) {
-                case CDP1802.DmaStatus.NONE ->  S0_FETCH;
-                case IN -> S2_DMA_IN;
-                case OUT -> S2_DMA_OUT;
-            };
+            case S1_INIT, S3_INTERRUPT -> {
+                if (systemBus.getDMAOUT()) {
+                    yield S2_DMA_OUT;
+                } else if (systemBus.getDMAIN()) {
+                    yield S2_DMA_IN;
+                } else {
+                    yield S0_FETCH;
+                }
+            }
             case S0_FETCH -> S1_EXECUTE;
             case S1_EXECUTE -> {
                 if (this.longInstruction) {
                     yield S1_EXECUTE;
                 } else {
-                    yield switch (this.systemBus.getDmaStatus()) {
-                        case NONE -> {
-                            if (this.systemBus.anyInterrupting() && getIE()) {
-                                this.idling = false;
-                                yield S3_INTERRUPT;
-                            } else if (this.idling) {
-                                yield S1_EXECUTE;
-                            } else {
-                                yield S0_FETCH;
-                            }
-                        }
-                        case IN -> {
-                            this.idling = false;
-                            yield S2_DMA_IN;
-                        }
-                        case OUT -> {
-                            this.idling = false;
-                            yield S2_DMA_OUT;
-                        }
-                    };
-                }
-            }
-            case S2_DMA_IN, S2_DMA_OUT -> switch (this.systemBus.getDmaStatus()) {
-                case NONE -> {
-                    if (this.systemBus.anyInterrupting() && getIE()) {
-                        yield S3_INTERRUPT;
+                    if (systemBus.getDMAOUT()) {
+                        this.idling = false;
+                        yield S2_DMA_OUT;
+                    } else if (systemBus.getDMAIN()) {
+                        this.idling = false;
+                        yield S2_DMA_IN;
                     } else {
-                        yield S0_FETCH;
+                        if (this.systemBus.getINT() && getIE()) {
+                            this.idling = false;
+                            yield S3_INTERRUPT;
+                        } else if (this.idling) {
+                            yield S1_EXECUTE;
+                        } else {
+                            yield S0_FETCH;
+                        }
                     }
                 }
-                case IN -> S2_DMA_IN;
-                case OUT -> S2_DMA_OUT;
-            };
+            }
+            case S2_DMA_IN, S2_DMA_OUT -> {
+                if (systemBus.getDMAOUT()) {
+                    yield S2_DMA_OUT;
+                } else if (systemBus.getDMAIN()) {
+                    yield S2_DMA_IN;
+                } else if (this.systemBus.getINT() && getIE()) {
+                    yield S3_INTERRUPT;
+                } else {
+                    yield S0_FETCH;
+                }
+            }
         };
     }
 
@@ -232,12 +220,12 @@ public class CDP1802 implements Processor {
     }
 
     private void onDmaIn() {
-        this.systemBus.getBus().writeByte(getR(0), this.systemBus.dispatchDmaIn(getR(0)));
+        this.systemBus.getBus().writeByte(getR(0), this.systemBus.readDMAIN(getR(0)));
         setR(0, getR(0) + 1);
     }
 
     private void onDmaOut() {
-        this.systemBus.dispatchDmaOut(getR(0), this.systemBus.getBus().readByte(getR(0)));
+        this.systemBus.writeDMAOUT(getR(0), this.systemBus.getBus().readByte(getR(0)));
         setR(0, getR(0) + 1);
     }
 
@@ -295,7 +283,7 @@ public class CDP1802 implements Processor {
                     }
                     case 0x4 -> { // 34: B1 | IF EF1 = 1, M(R(P)) → R(P).0, ELSE R(P) + 1 → R(P)
                         int value = this.systemBus.getBus().readByte(getR(getP()));
-                        if (getEF(0)) {
+                        if (systemBus.getEF1()) {
                             setR0(getP(), value);
                         } else {
                             setR(getP(), getR(getP()) + 1);
@@ -303,7 +291,7 @@ public class CDP1802 implements Processor {
                     }
                     case 0x5 -> { // 35: B2 | IF EF2 = 1, M(R(P)) → R(P).0, ELSE R(P) + 1 → R(P)
                         int value = this.systemBus.getBus().readByte(getR(getP()));
-                        if (getEF(1)) {
+                        if (systemBus.getEF2()) {
                             setR0(getP(), value);
                         } else {
                             setR(getP(), getR(getP()) + 1);
@@ -311,7 +299,7 @@ public class CDP1802 implements Processor {
                     }
                     case 0x6 -> { // 36: B3 | IF EF3 = 1, M(R(P)) → R(P).0, ELSE R(P) + 1 → R(P)
                         int value = this.systemBus.getBus().readByte(getR(getP()));
-                        if (getEF(2)) {
+                        if (systemBus.getEF3()) {
                             setR0(getP(), value);
                         } else {
                             setR(getP(), getR(getP()) + 1);
@@ -319,7 +307,7 @@ public class CDP1802 implements Processor {
                     }
                     case 0x7 -> { // 37: B4 | IF EF4 = 1, M(R(P)) → R(P).0, ELSE R(P) + 1 → R(P)
                         int value = this.systemBus.getBus().readByte(getR(getP()));
-                        if (getEF(3)) {
+                        if (systemBus.getEF4()) {
                             setR0(getP(), value);
                         } else {
                             setR(getP(), getR(getP()) + 1);
@@ -355,7 +343,7 @@ public class CDP1802 implements Processor {
                     }
                     case 0xC -> { // 3C: BN1 | IF EF1 = 0, M(R(P)) → R(P).0, ELSE R(P) + 1 → R(P)
                         int value = this.systemBus.getBus().readByte(getR(getP()));
-                        if (!getEF(0)) {
+                        if (!systemBus.getEF1()) {
                             setR0(getP(), value);
                         } else {
                             setR(getP(), getR(getP()) + 1);
@@ -363,7 +351,7 @@ public class CDP1802 implements Processor {
                     }
                     case 0xD -> { // 3D: BN2 | IF EF2 = 0, M(R(P)) → R(P).0, ELSE R(P) + 1 → R(P)
                         int value = this.systemBus.getBus().readByte(getR(getP()));
-                        if (!getEF(1)) {
+                        if (!systemBus.getEF2()) {
                             setR0(getP(), value);
                         } else {
                             setR(getP(), getR(getP()) + 1);
@@ -371,7 +359,7 @@ public class CDP1802 implements Processor {
                     }
                     case 0xE -> { // 3E: BN3 | IF EF3 = 0, M(R(P)) → R(P).0, ELSE R(P) + 1 → R(P)
                         int value = this.systemBus.getBus().readByte(getR(getP()));
-                        if (!getEF(2)) {
+                        if (!systemBus.getEF3()) {
                             setR0(getP(), value);
                         } else {
                             setR(getP(), getR(getP()) + 1);
@@ -379,7 +367,7 @@ public class CDP1802 implements Processor {
                     }
                     case 0xF -> { // 3F: BN4 | IF EF4 = 0, M(R(P)) → R(P).0, ELSE R(P) + 1 → R(P)
                         int value = this.systemBus.getBus().readByte(getR(getP()));
-                        if (!getEF(3)) {
+                        if (!systemBus.getEF4()) {
                             setR0(getP(), value);
                         } else {
                             setR(getP(), getR(getP()) + 1);
@@ -401,11 +389,11 @@ public class CDP1802 implements Processor {
                     setR(getX(), getR(getX()) + 1);
                 } else if (N >= 0x1 && N <= 0x7) { // 6N: OUT | M(R(X)) → BUS; R(X) + 1 → R(X)
                     int NX = N & 7;
-                    this.systemBus.dispatchOutput(NX, this.systemBus.getBus().readByte(getR(getX())));
+                    this.systemBus.writeOUT(NX, this.systemBus.getBus().readByte(getR(getX())));
                     setR(getX(), getR(getX()) + 1);
                 } else if (N >= 0x9 && N <= 0xF) { // 6N: INP | BUS → M(R(X)), D
                     int NX = N & 7;
-                    int input = this.systemBus.dispatchInput(NX);
+                    int input = this.systemBus.readIN(NX);
                     this.systemBus.getBus().writeByte(getR(getX()), input);
                     setD(input);
                 } else if (N == 0x8) { // 68: Undefined. Return 0xFF from pull up data bus
@@ -772,10 +760,6 @@ public class CDP1802 implements Processor {
         }
     }
 
-    public static boolean isHandled(int flags) {
-        return Processor.testBit(flags, HANDLED);
-    }
-
     public enum State {
         S0_FETCH,
         S1_RESET,
@@ -798,24 +782,28 @@ public class CDP1802 implements Processor {
 
     public interface SystemBus extends io.github.arkosammy12.jemu.core.common.SystemBus {
 
-        DmaStatus getDmaStatus();
+        boolean getDMAIN();
 
-        boolean anyInterrupting();
+        boolean getDMAOUT();
 
-        int dispatchDmaIn(int address);
+        boolean getEF1();
 
-        void dispatchDmaOut(int address, int value);
+        boolean getEF2();
 
-        int dispatchInput(int port);
+        boolean getEF3();
 
-        void dispatchOutput(int port, int value);
+        boolean getEF4();
 
-    }
+        boolean getINT();
 
-    public enum DmaStatus {
-        NONE,
-        IN,
-        OUT
+        int readDMAIN(int address);
+
+        void writeDMAOUT(int address, int value);
+
+        int readIN(int port);
+
+        void writeOUT(int port, int value);
+
     }
 
 }

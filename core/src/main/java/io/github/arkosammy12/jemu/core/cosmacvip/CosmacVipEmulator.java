@@ -1,15 +1,8 @@
 package io.github.arkosammy12.jemu.core.cosmacvip;
 
 import io.github.arkosammy12.jemu.core.common.*;
-import io.github.arkosammy12.jemu.core.exceptions.InvalidInstructionException;
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import io.github.arkosammy12.jemu.core.cpu.CDP1802;
-
-import java.util.List;
-
-import static io.github.arkosammy12.jemu.core.cpu.CDP1802.DmaStatus.IN;
-import static io.github.arkosammy12.jemu.core.cpu.CDP1802.DmaStatus.OUT;
-import static io.github.arkosammy12.jemu.core.cpu.CDP1802.isHandled;
 
 public class CosmacVipEmulator implements Emulator, CDP1802.SystemBus {
 
@@ -21,9 +14,8 @@ public class CosmacVipEmulator implements Emulator, CDP1802.SystemBus {
     private final CDP1802 cpu;
     private final CosmacVipBus bus;
     private final CDP1861<?> vdp;
-    private final AudioGenerator<?> audio;
+    private final AudioGenerator<?> audioGenerator;
     private final CosmacVIPKeypad<?> keypad;
-    private final List<IODevice> ioDevices;
 
     private final int frameRate;
 
@@ -36,15 +28,12 @@ public class CosmacVipEmulator implements Emulator, CDP1802.SystemBus {
             if (this.chip8Interpreter == CosmacVIPHost.Chip8Interpreter.CHIP_8X) {
                 this.bus = new HybridChip8XBus(this);
                 this.vdp = new VP590<>(this);
-                VP595<?> vp595 = new VP595<>(this);
-                this.audio = vp595;
-                this.ioDevices = List.of(this.vdp, this.keypad, vp595);
+                this.audioGenerator = new VP595<>(this);
                 this.frameRate = 61;
             } else {
                 this.bus = new CosmacVipBus(this);
                 this.vdp = new CDP1861<>(this);
-                this.audio = new CosmacVipAudioGenerator<>(this);
-                this.ioDevices = List.of(this.vdp, this.keypad);
+                this.audioGenerator = new CosmacVipAudioGenerator<>(this);
                 this.frameRate = 60;
             }
         } catch (Exception e) {
@@ -61,12 +50,6 @@ public class CosmacVipEmulator implements Emulator, CDP1802.SystemBus {
         return this.cpu;
     }
 
-    /*
-    public CosmacVipBus getBusView() {
-        return this.bus;
-    }
-     */
-
     @Override
     public Bus getBus() {
         return this.bus;
@@ -79,7 +62,7 @@ public class CosmacVipEmulator implements Emulator, CDP1802.SystemBus {
 
     @Override
     public AudioGenerator<?> getAudioGenerator() {
-        return this.audio;
+        return this.audioGenerator;
     }
 
     @Override
@@ -91,121 +74,107 @@ public class CosmacVipEmulator implements Emulator, CDP1802.SystemBus {
         return this.chip8Interpreter;
     }
 
-    public int dispatchInput(int ioPort) {
-        for (IODevice ioDevice : this.ioDevices) {
-            if (ioDevice.isInputPort(ioPort)) {
-                return ioDevice.onInput(ioPort);
-            }
-        }
-        return 0xFF;
-    }
-
-    public void dispatchOutput(int ioPort, int value) {
-        if ((ioPort & 4) != 0) {
-            this.bus.unlatchAddressMsb();
-        }
-        for (IODevice ioDevice : this.ioDevices) {
-            if (ioDevice.isOutputPort(ioPort)) {
-                ioDevice.onOutput(ioPort, value);
-                return;
-            }
-        }
-    }
-
-    public CDP1802.DmaStatus getDmaStatus() {
-        CDP1802.DmaStatus highestStatus = CDP1802.DmaStatus.NONE;
-        for (IODevice ioDevice : this.ioDevices) {
-            switch (ioDevice.getDmaStatus()) {
-                case IN -> highestStatus = IN;
-                case OUT -> {
-                    if (highestStatus == CDP1802.DmaStatus.NONE) {
-                        highestStatus = OUT;
-                    }
-                }
-            }
-        }
-        return highestStatus;
-    }
-
-    public void dispatchDmaOut(int dmaOutAddress, int value) {
-        for (IODevice ioDevice : this.ioDevices) {
-            if (ioDevice.getDmaStatus() == CDP1802.DmaStatus.OUT) {
-                ioDevice.doDmaOut(dmaOutAddress, value);
-                return;
-            }
-        }
-    }
-
-    public int dispatchDmaIn(int dmaInAddress) {
-        for (IODevice ioDevice : this.ioDevices) {
-            if (ioDevice.getDmaStatus() == CDP1802.DmaStatus.IN) {
-                return ioDevice.doDmaIn(dmaInAddress);
-            }
-        }
-        return 0xFF;
-    }
-
-    public boolean anyInterrupting() {
-        for (IODevice ioDevice : this.ioDevices) {
-            if (ioDevice.isInterrupting()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    @Override
-    public void executeFrame() {
-        //if (this.disassembler.isEnabled()) {
-            //this.runCyclesDebug();
-        //} else {
-            this.runCycles();
-        //}
-    }
-
-    private void runCycles() {
-        for (int i = 0; i < CYCLES_PER_FRAME; i++) {
-            this.runCycle();
-        }
-    }
-
-    private void runCycle() {
-        //this.cpu.getCurrentState();
-        this.cycleCpu();
-        this.cycleIoDevices();
-        this.cpu.nextState();
-
-        //this.cpu.getCurrentState();
-    }
-
-    @Override
-    public void executeCycle() {
-        this.cycleCpu();
-        this.cycleIoDevices();
-        this.cpu.nextState();
-    }
-
-    private void cycleCpu() {
-        int flags = this.cpu.cycle();
-        if (!isHandled(flags)) {
-            throw new InvalidInstructionException((this.cpu.getI() << 4) | this.cpu.getN(), "Cosmac VIP");
-        }
-    }
-
-    private void cycleIoDevices() {
-        for (IODevice ioDevice : this.ioDevices) {
-            ioDevice.cycle();
-        }
-    }
-
     @Override
     public int getFramerate() {
         return this.frameRate;
     }
 
     @Override
+    public void executeFrame() {
+        for (int i = 0; i < CYCLES_PER_FRAME; i++) {
+            this.runCycle();
+        }
+    }
+
+    private void runCycle() {
+        this.cpu.cycle();
+        this.vdp.cycle();
+        this.keypad.cycle();
+        this.cpu.nextState();
+    }
+
+    @Override
+    public void executeCycle() {
+        this.runCycle();
+    }
+
+    @Override
     public void close() {
 
+    }
+
+    @Override
+    public boolean getDMAIN() {
+        return false;
+    }
+
+    @Override
+    public boolean getDMAOUT() {
+        return this.vdp.getDMAOUTSignal();
+    }
+
+    @Override
+    public boolean getEF1() {
+        return this.vdp.getEFX();
+    }
+
+    @Override
+    public boolean getEF2() {
+        return false;
+    }
+
+    @Override
+    public boolean getEF3() {
+        return this.keypad.getEFX();
+    }
+
+    @Override
+    public boolean getEF4() {
+        return false;
+    }
+
+    @Override
+    public boolean getINT() {
+        return this.vdp.getInterruptSignal();
+    }
+
+    @Override
+    public int readDMAIN(int dmaInAddress) {
+        return 0xFF;
+    }
+
+    @Override
+    public void writeDMAOUT(int dmaOutAddress, int value) {
+        if (this.vdp.getDMAOUTSignal()) {
+            this.vdp.onDMAOUT(dmaOutAddress, value);
+        }
+    }
+
+    public int readIN(int ioPort) {
+        if (ioPort == 1) {
+            this.vdp.setDisplayEnable(true);
+        }
+        return 0xFF;
+    }
+
+    public void writeOUT(int ioPort, int value) {
+        if ((ioPort & 4) != 0) {
+            this.bus.unlatchAddressMsb();
+        }
+        switch (ioPort) {
+            case 1 -> this.vdp.setDisplayEnable(false);
+            case 2 -> this.keypad.setLatchedKey(value);
+            case 3 -> {
+                if (this.audioGenerator instanceof VP595<?> vp595) {
+                    vp595.setFrequency(value);
+                }
+            }
+            case 5 -> {
+                if (this.vdp instanceof VP590<?> vp590) {
+                    vp590.incrementBackgroundColorIndex();
+                }
+            }
+        }
     }
 
 }

@@ -27,10 +27,6 @@ public class TestCDP1802 extends CDP1802 {
             this.setR(i, initialState.getR(i));
         }
 
-        for (int i = 0; i < 4; i++) {
-            this.setEF(i, true);
-        }
-
     }
 
 }

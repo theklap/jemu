@@ -3,7 +3,7 @@ package io.github.arkosammy12.jemu.core.cosmacvip;
 import io.github.arkosammy12.jemu.core.common.VideoGenerator;
 import io.github.arkosammy12.jemu.core.cpu.CDP1802;
 
-public class CDP1861<E extends CosmacVipEmulator> extends VideoGenerator<E> implements IODevice {
+public class CDP1861<E extends CosmacVipEmulator> extends VideoGenerator<E> {
 
     private static final int SCANLINES_PER_FRAME = 262;
     protected static final int MACHINE_CYCLES_PER_SCANLINE = 14;
@@ -27,9 +27,10 @@ public class CDP1861<E extends CosmacVipEmulator> extends VideoGenerator<E> impl
     protected long cycles;
     protected int scanlineIndex;
 
-    private CDP1802.DmaStatus dmaStatus = CDP1802.DmaStatus.NONE;
-    private boolean interrupting = false;
-    private boolean enabled = false;
+    private boolean interrupting;
+    private boolean efx;
+    private boolean dmaOut;
+    private boolean enabled;
     private boolean displayEnableLatch;
 
     public CDP1861(E emulator) {
@@ -47,36 +48,37 @@ public class CDP1861<E extends CosmacVipEmulator> extends VideoGenerator<E> impl
         return 128;
     }
 
-    @Override
-    public CDP1802.DmaStatus getDmaStatus() {
-        return this.dmaStatus;
-    }
-
-    @Override
-    public boolean isInterrupting() {
+    public boolean getInterruptSignal() {
         return this.interrupting;
     }
 
-    @Override
+    public boolean getDMAOUTSignal() {
+        return this.dmaOut;
+    }
+
+    public boolean getEFX() {
+        return this.efx;
+    }
+
+    public void setDisplayEnable(boolean value) {
+        this.displayEnableLatch = value;
+    }
+
     public void cycle() {
         if (this.cycles % CosmacVipEmulator.CYCLES_PER_FRAME == 0) {
             this.enabled = this.displayEnableLatch;
         }
         if (this.enabled) {
-            this.emulator.getCpu().setEF(0, (this.scanlineIndex >= FIRST_EFX_BEGIN && this.scanlineIndex < FIRST_EFX_END) || (this.scanlineIndex >= SECOND_EFX_BEGIN && this.scanlineIndex < SECOND_EFX_END));
+            this.efx = (this.scanlineIndex >= FIRST_EFX_BEGIN && this.scanlineIndex < FIRST_EFX_END) || (this.scanlineIndex >= SECOND_EFX_BEGIN && this.scanlineIndex < SECOND_EFX_END);
             this.interrupting = this.scanlineIndex >= INTERRUPT_BEGIN && this.scanlineIndex < INTERRUPT_END;
             if (this.scanlineIndex >= DISPLAY_AREA_BEGIN && this.scanlineIndex < DISPLAY_AREA_END) {
                 long scanLineCycles = this.cycles % MACHINE_CYCLES_PER_SCANLINE;
-                if (scanLineCycles >= (DMAO_BEGIN - 1) && scanLineCycles < (DMAO_END - 1)) {
-                    this.dmaStatus = CDP1802.DmaStatus.OUT;
-                } else {
-                    this.dmaStatus = CDP1802.DmaStatus.NONE;
-                }
+                this.dmaOut = scanLineCycles >= (DMAO_BEGIN - 1) && scanLineCycles < (DMAO_END - 1);
             }
         } else {
             this.interrupting = false;
-            this.dmaStatus = CDP1802.DmaStatus.NONE;
-            this.emulator.getCpu().setEF(0, false);
+            this.efx = false;
+            this.dmaOut = false;
         }
         if (this.cycles != 0 && (this.cycles % MACHINE_CYCLES_PER_SCANLINE == 0)) {
             this.scanlineIndex = (this.scanlineIndex + 1) % SCANLINES_PER_FRAME;
@@ -87,9 +89,8 @@ public class CDP1861<E extends CosmacVipEmulator> extends VideoGenerator<E> impl
         this.cycles++;
     }
 
-    @Override
     @SuppressWarnings("DuplicatedCode")
-    public void doDmaOut(int dmaOutAddress, int value) {
+    public void onDMAOUT(int dmaOutAddress, int value) {
         if (!this.emulator.getCpu().getCurrentState().isS2Dma()) {
             return;
         }
@@ -108,27 +109,6 @@ public class CDP1861<E extends CosmacVipEmulator> extends VideoGenerator<E> impl
                 this.displayBuffer[(col * 4) + j][row] = (value & mask) != 0 ? 0xFFFFFFFF : 0xFF000000;
             }
         }
-    }
-
-    @Override
-    public boolean isOutputPort(int port) {
-        return port == 1;
-    }
-
-    @Override
-    public void onOutput(int port, int value) {
-        this.displayEnableLatch = false;
-    }
-
-    @Override
-    public boolean isInputPort(int port) {
-        return port == 1;
-    }
-
-    @Override
-    public int onInput(int port) {
-        this.displayEnableLatch = true;
-        return 0xFF;
     }
 
 }

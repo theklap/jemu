@@ -26,36 +26,6 @@ public class CDP1802TestCaseBench implements CDP1802.SystemBus {
     }
 
     @Override
-    public CDP1802.DmaStatus getDmaStatus() {
-        return CDP1802.DmaStatus.NONE;
-    }
-
-    @Override
-    public boolean anyInterrupting() {
-        return false;
-    }
-
-    @Override
-    public int dispatchDmaIn(int address) {
-        return 0;
-    }
-
-    @Override
-    public void dispatchDmaOut(int address, int value) {
-
-    }
-
-    @Override
-    public int dispatchInput(int port) {
-        return 0;
-    }
-
-    @Override
-    public void dispatchOutput(int port, int value) {
-
-    }
-
-    @Override
     public Bus getBus() {
         return this.bus;
     }
@@ -100,6 +70,61 @@ public class CDP1802TestCaseBench implements CDP1802.SystemBus {
             int value = ramElement.get(1);
             assertEquals(value, this.bus.readByte(address), "Test name: %s. Address: $%04X (%d)".formatted(testCase.getName(), address, address));
         }
+
+    }
+
+    @Override
+    public boolean getDMAIN() {
+        return false;
+    }
+
+    @Override
+    public boolean getDMAOUT() {
+        return false;
+    }
+
+    @Override
+    public boolean getEF1() {
+        return true;
+    }
+
+    @Override
+    public boolean getEF2() {
+        return true;
+    }
+
+    @Override
+    public boolean getEF3() {
+        return true;
+    }
+
+    @Override
+    public boolean getEF4() {
+        return true;
+    }
+
+    @Override
+    public boolean getINT() {
+        return false;
+    }
+
+    @Override
+    public int readDMAIN(int address) {
+        return 0xFF;
+    }
+
+    @Override
+    public void writeDMAOUT(int address, int value) {
+
+    }
+
+    @Override
+    public int readIN(int port) {
+        return 0;
+    }
+
+    @Override
+    public void writeOUT(int port, int value) {
 
     }
 

@@ -38,23 +38,13 @@ public class  VP590<E extends CosmacVipEmulator> extends CDP1861<E> {
         return this.colorRam[address & (this.hiresColor ? 0xFF : 0xE7)];
     }
 
-    @Override
-    public boolean isOutputPort(int port) {
-        return port == 5 || super.isOutputPort(port);
-    }
-
-    @Override
-    public void onOutput(int port, int value) {
-        if (super.isOutputPort(port)) {
-            super.onOutput(port, value);
-            return;
-        }
+    public void incrementBackgroundColorIndex() {
         this.backgroundColorIndex = (this.backgroundColorIndex + 1) % BACKGROUND_COLORS.length;
     }
 
     @Override
     @SuppressWarnings("DuplicatedCode")
-    public void doDmaOut(int dmaOutAddress, int value) {
+    public void onDMAOUT(int dmaOutAddress, int value) {
         if (!this.emulator.getCpu().getCurrentState().isS2Dma()) {
             return;
         }
