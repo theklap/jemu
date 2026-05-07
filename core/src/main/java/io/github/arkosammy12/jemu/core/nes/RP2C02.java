@@ -410,26 +410,27 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
             }
             case PPUADDR_ADDR -> {
                 if (this.getW()) {
-                    this.setT((this.getT() & ~0xFF) | (value & 0xFF));
+                    int T = (this.getT() & ~0xFF) | (value & 0xFF);
+                    this.setT(T);
                     // Copying of t to v is continuous during the write
-                    this.setV(this.getT());
+                    this.setV(T);
                     this.copyTtoVSignal.trigger(3, 0);
                 } else {
-                    this.setT((this.getT() & ~0x3F00) | ((value & 0b00111111) << 8));
-                    this.setT(this.getT() & ~(1 << 14));
+                    this.setT(((this.getT() & ~0x3F00) | ((value & 0b00111111) << 8)) & ~(1 << 14));
                 }
                 this.toggleW();
             }
             // TODO: 5 dot (?) delay between $2007 access and the memory access happening. Ask 100th Coin for more details.
             case PPUDATA_ADDR -> {
-                this.writeBytePPU(this.getV(), value);
+                int V = this.getV();
+                this.writeBytePPU(V, value);
 
                 // TODO: If the $2007 access happens to coincide with a standard VRAM address increment (either horizontal or vertical), it will presumably not double-increment the relevant counter.
                 if (this.isRenderingEnabled() && (this.isVisibleScanline() || this.isPreRenderScanline())) {
                     this.incrementHorizontalPosition();
                     this.incrementVerticalPosition();
                 } else {
-                    this.setV(this.getV() + this.getVRAMAddressIncrement());
+                    this.setV(V + this.getVRAMAddressIncrement());
                 }
             }
             default -> throw new EmulatorException("Invalid address $%04X for NES PPU!".formatted(address));
@@ -657,29 +658,30 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
     }
 
     private void incrementVerticalPosition() {
-        if ((this.getV() & 0x7000) != 0x7000) {
-            this.setV(this.getV() + 0x1000);
+        int V = this.getV();
+        if ((V & 0x7000) != 0x7000) {
+            this.setV(V + 0x1000);
         } else {
-            this.setV(this.getV() & ~0x7000);
-            int y = (this.getV() & 0x03E0) >>> 5;
+            V = V & (~0x7000);
+            int y = (V & 0x03E0) >>> 5;
             if (y == 29) {
                 y = 0;
-                this.setV(this.getV() ^ 0x0800);
+                V = V ^ 0x0800;
             } else if (y == 31) {
                 y = 0;
             } else {
                 y++;
             }
-            this.setV((this.getV() & ~0x03E0) | ((y & 0x1F) << 5));
+            this.setV((V & ~0x03E0) | ((y & 0x1F) << 5));
         }
     }
 
     private void incrementHorizontalPosition() {
-        if ((this.getV() & 0x001F) == 31) {
-            this.setV(this.getV() & ~0x001F);
-            this.setV(this.getV() ^ 0x0400);
+        int V = this.getV();
+        if ((V & 0x001F) == 31) {
+            this.setV((V & ~0x001F) ^ 0x0400);
         } else {
-            this.setV(getV() + 1);
+            this.setV(V + 1);
         }
     }
 
@@ -794,7 +796,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 this.bgFetcherStep = 3;
             }
             case 3 -> {
-                int attributeAddress = 0x23C0 | (this.getV() & 0x0C00) | ((this.getV() >>> 4) & 0x38) | ((this.getV() >>> 2) & 0x07);
+                int V = this.getV();
+                int attributeAddress = 0x23C0 | (V & 0x0C00) | ((V >>> 4) & 0x38) | ((V >>> 2) & 0x07);
                 this.bgFetcherAttributeByte = this.readBytePPU(attributeAddress);
                 this.bgFetcherStep = 4;
             }
@@ -862,7 +865,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         }
     }
 
-    private void incrementPrimaryOamAddress1() {
+    private void incrementPrimaryOamAddressLow() {
         if (!this.isRenderingEnabled()) {
             return;
         }
@@ -874,7 +877,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         }
     }
 
-    private void incrementPrimaryOamAddress4(boolean zeroLower2Bits) {
+    private void incrementPrimaryOamAddressHigh() {
         if (!this.isRenderingEnabled()) {
             return;
         }
@@ -882,9 +885,19 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         if (!this.spriteEvaluationPrimaryOamAddressOverflowed) {
             int originalPrimaryOamAddress = this.primaryOamAddress;
             this.primaryOamAddress = (this.primaryOamAddress + 4) & 0xFF;
-            if (zeroLower2Bits) {
-                this.primaryOamAddress &= ~0b11;
-            }
+            this.spriteEvaluationPrimaryOamAddressOverflowed = this.primaryOamAddress < originalPrimaryOamAddress;
+        }
+    }
+
+    private void incrementPrimaryOamAddressHighClearLow() {
+        if (!this.isRenderingEnabled()) {
+            return;
+        }
+
+        if (!this.spriteEvaluationPrimaryOamAddressOverflowed) {
+            int originalPrimaryOamAddress = this.primaryOamAddress;
+            this.primaryOamAddress = (this.primaryOamAddress + 4) & 0xFF;
+            this.primaryOamAddress &= ~0b11;
             this.spriteEvaluationPrimaryOamAddressOverflowed = this.primaryOamAddress < originalPrimaryOamAddress;
         }
     }
@@ -900,20 +913,20 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 }
                 if (this.spriteEvaluationOamReadingCounter > 0) {
                     this.spriteEvaluationOamReadingCounter--;
-                    this.incrementPrimaryOamAddress1();
+                    this.incrementPrimaryOamAddressLow();
                 } else {
                     if (this.isSpriteYInRange(this.primaryOamBuffer) && !this.spriteEvaluationPrimaryOamAddressOverflowed) {
                         this.spriteEvaluationOamReadingCounter = 7;
-                        this.incrementPrimaryOamAddress1();
+                        this.incrementPrimaryOamAddressLow();
                         if (this.spriteEvaluationSecondaryOamAddressOverflowed && this.isRenderingEnabled()) {
                             this.setSpriteOverflowFlag(true);
                         }
                     } else {
                         if (this.spriteEvaluationSecondaryOamAddressOverflowed) {
-                            this.incrementPrimaryOamAddress4(false);
-                            this.incrementPrimaryOamAddress1();
+                            this.incrementPrimaryOamAddressHigh();
+                            this.incrementPrimaryOamAddressLow();
                         } else {
-                            this.incrementPrimaryOamAddress4(true);
+                            this.incrementPrimaryOamAddressHighClearLow();
                         }
                     }
                 }
@@ -1035,10 +1048,6 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         return (this.ppuControl & (1 << 5)) != 0;
     }
 
-    private boolean getMasterSlaveSelect() {
-        return (this.ppuControl & (1 << 6)) != 0;
-    }
-
     private boolean getVBlankNMIEnable() {
         return (this.ppuControl & (1 << 7)) != 0;
     }
@@ -1075,10 +1084,6 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         }
     }
 
-    private boolean getSpriteOverflowFlag() {
-        return (this.ppuStatus & (1 << 5)) != 0;
-    }
-
     private void setSprite0HitFlag(boolean value) {
         if (value) {
             this.ppuStatus |= 1 << 6;
@@ -1087,20 +1092,12 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         }
     }
 
-    private boolean getSprite0Flag() {
-        return (this.ppuStatus & (1 << 6)) != 0;
-    }
-
     private void setVBlankFlag(boolean value) {
         if (value) {
             this.ppuStatus |= 1 << 7;
         } else {
             this.ppuStatus &= ~(1 << 7);
         }
-    }
-
-    private boolean getVBlankFlag() {
-        return (this.ppuStatus & (1 << 7)) != 0;
     }
 
     private int readBytePPU(int address) {
