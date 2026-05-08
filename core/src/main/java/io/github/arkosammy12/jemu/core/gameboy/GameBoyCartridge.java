@@ -20,7 +20,7 @@ public abstract class GameBoyCartridge implements Bus {
     public static final int RAM_SIZE_ADDRESS = 0x0149;
 
     private final GameBoyEmulator gameBoyEmulator;
-    protected final int[] originalRom;
+    protected final byte[] originalRom;
 
     protected final int cartridgeType;
     protected final int romSizeHeader;
@@ -28,11 +28,11 @@ public abstract class GameBoyCartridge implements Bus {
 
     public GameBoyCartridge(GameBoyEmulator emulator, int cartridgeType) {
         this.gameBoyEmulator = emulator;
-        int[] rom = SystemHost.byteToIntArray(emulator.getHost().getRom());
+        byte[] rom = emulator.getHost().getRom();
         this.originalRom = Arrays.copyOf(rom, rom.length);
         this.cartridgeType = cartridgeType;
-        this.romSizeHeader = rom[ROM_SIZE_ADDRESS];
-        this.ramSizeHeader = rom[RAM_SIZE_ADDRESS];
+        this.romSizeHeader = (int) rom[ROM_SIZE_ADDRESS];
+        this.ramSizeHeader = (int) rom[RAM_SIZE_ADDRESS];
     }
 
     public static GameBoyCartridge getCartridge(GameBoyEmulator emulator) {
@@ -52,14 +52,12 @@ public abstract class GameBoyCartridge implements Bus {
 
     }
 
-    protected final Optional<int[]> readSaveData() {
+    protected final Optional<byte[]> readSaveData() {
         Path saveDataDirectory = this.gameBoyEmulator.getHost().getSaveDataDirectory();
         String romName = FilenameUtils.getBaseName(this.gameBoyEmulator.getHost().getRomPath().toString());
         Path saveDataFilePath = saveDataDirectory.resolve("%s.sav".formatted(romName));
         try {
-            byte[] bytes = Files.readAllBytes(saveDataFilePath);
-            int[] saveData = SystemHost.byteToIntArray(bytes);
-            return Optional.of(saveData);
+            return Optional.of(Files.readAllBytes(saveDataFilePath));
         } catch (NoSuchFileException e) {
             Logger.warn("Save data for GameBoy ROM file %s not found!".formatted(saveDataFilePath));
             return Optional.empty();
@@ -70,11 +68,11 @@ public abstract class GameBoyCartridge implements Bus {
     }
 
     public void save() {
-        Optional<int[]> saveDataOptional = this.getSaveData();
+        Optional<byte[]> saveDataOptional = this.getSaveData();
         if (saveDataOptional.isEmpty()) {
             return;
         }
-        int[] saveData = saveDataOptional.get();
+        byte[] saveData = saveDataOptional.get();
 
         Path saveDataDirectory = this.gameBoyEmulator.getHost().getSaveDataDirectory();
         String romName = FilenameUtils.getBaseName(this.gameBoyEmulator.getHost().getRomPath().toString());
@@ -89,7 +87,7 @@ public abstract class GameBoyCartridge implements Bus {
         Path saveDataFilePath = saveDataDirectory.resolve("%s.sav".formatted(romName));
         byte[] bytes = new byte[saveData.length];
         for (int i = 0; i < bytes.length; i++) {
-            bytes[i] = (byte) (saveData[i] & 0xFF);
+            bytes[i] = (byte) ((int) saveData[i] & 0xFF);
         }
 
         try {
@@ -99,8 +97,16 @@ public abstract class GameBoyCartridge implements Bus {
         }
     }
 
-    protected Optional<int[]> getSaveData() {
+    protected Optional<byte[]> getSaveData() {
         return Optional.empty();
+    }
+
+    protected static byte[] toFlatByteArray(byte[][] arr) {
+        byte[] flat = new byte[arr.length * arr[0].length];
+        for (int i = 0; i < arr.length; i++) {
+            System.arraycopy(arr[i], 0, flat, i * arr[0].length, arr[i].length);
+        }
+        return flat;
     }
 
 }

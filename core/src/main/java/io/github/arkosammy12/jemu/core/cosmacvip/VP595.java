@@ -27,9 +27,9 @@ public class VP595<E extends CosmacVIPEmulator> extends AudioGenerator<E> {
         return SampleSize.BYTES_1;
     }
 
-    public void setFrequency(int value) {
-        int actualValue = value != 0 ? value : 0x80;
-        this.frequencyLatch = 27535.0 / (actualValue + 1);
+    public void setFrequency(double value) {
+        double actualValue = value != 0 ? value : 0x80;
+        this.frequencyLatch = 27535.0 / (actualValue + 1.0);
     }
 
     @Override

@@ -17,10 +17,10 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
 
     private VRAMBank vramBank = VRAMBank.BANK_0;
 
-    private final int[] vRamBank1 = new int[0x2000];
+    private final byte[] vRamBank1 = new byte[0x2000];
 
-    private final int[] bgPaletteRam = new int[0x40];
-    private final int[] objPaletteRam = new int[0x40];
+    private final byte[] bgPaletteRam = new byte[0x40];
+    private final byte[] objPaletteRam = new byte[0x40];
 
     private int backgroundPaletteIndex;
     private int objectPaletteIndex;
@@ -46,8 +46,8 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
         if (address >= VRAM_START && address <= VRAM_END) {
             if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
                 return switch (this.vramBank) {
-                    case BANK_0 -> this.vRam[address - VRAM_START];
-                    case BANK_1 -> this.vRamBank1[address - VRAM_START];
+                    case BANK_0 -> (int) this.vRam[address - VRAM_START] & 0xFF;
+                    case BANK_1 -> (int) this.vRamBank1[address - VRAM_START] & 0xFF;
                 };
             } else {
                 return 0xFF;
@@ -61,7 +61,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 case BGPI_ADDR -> this.backgroundPaletteIndex | 0b01000000;
                 case BGPD -> {
                     if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
-                        yield this.bgPaletteRam[this.getBgPaletteAddress()];
+                        yield (int) this.bgPaletteRam[this.getBgPaletteAddress()] & 0xFF;
                     } else {
                         yield 0xFF;
                     }
@@ -69,7 +69,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 case OBPI -> this.objectPaletteIndex | 0b01000000;
                 case OBPD -> {
                     if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
-                        yield this.objPaletteRam[this.getObjPaletteAddress()];
+                        yield (int) this.objPaletteRam[this.getObjPaletteAddress()] & 0xFF;
                     } else {
                         yield 0xFF;
                     }
@@ -85,8 +85,8 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
         if (address >= VRAM_START && address <= VRAM_END) {
             if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
                 switch (this.vramBank) {
-                    case BANK_0 -> this.vRam[address - VRAM_START] = value & 0xFF;
-                    case BANK_1 -> this.vRamBank1[address - VRAM_START] = value & 0xFF;
+                    case BANK_0 -> this.vRam[address - VRAM_START] = (byte) value;
+                    case BANK_1 -> this.vRamBank1[address - VRAM_START] = (byte) value;
                 }
             }
         } else {
@@ -95,7 +95,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 case BGPI_ADDR -> this.backgroundPaletteIndex = value & 0xFF;
                 case BGPD -> {
                     if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
-                        this.bgPaletteRam[this.getBgPaletteAddress()] = value & 0xFF;
+                        this.bgPaletteRam[this.getBgPaletteAddress()] = (byte) value;
                     }
                     if (this.getBgPaletteAddressAutoIncrement()) {
                         this.incrementBgPaletteAddress();
@@ -104,7 +104,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 case OBPI -> this.objectPaletteIndex = value & 0xFF;
                 case OBPD -> {
                     if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
-                        this.objPaletteRam[this.getObjPaletteAddress()] = value & 0xFF;
+                        this.objPaletteRam[this.getObjPaletteAddress()] = (byte) value;
                     }
                     if (this.getObjPaletteAddressAutoIncrement()) {
                         this.incrementObjPaletteAddress();
@@ -172,7 +172,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                         tileAddress = 0x8000 + (this.bgFifoCurrentTileNumber * 16);
                     } else {
                         byte signedTile = (byte) this.bgFifoCurrentTileNumber;
-                        tileAddress = 0x9000 + signedTile * 16;
+                        tileAddress = 0x9000 + (int) signedTile * 16;
                     }
 
                     int row;
@@ -399,9 +399,9 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
     private int getARGBForBgPixelEntry(int colorNumber, int palette) {
         int colorRamIndex = (palette * 8) + (colorNumber * 2);
 
-        int r5 = this.bgPaletteRam[colorRamIndex] & 0b11111;
-        int g5 = ((this.bgPaletteRam[colorRamIndex + 1] & 0b11) << 3) | ((this.bgPaletteRam[colorRamIndex] & 0b11100000) >>> 5);
-        int b5 = (this.bgPaletteRam[colorRamIndex + 1] & 0b01111100) >>> 2;
+        int r5 = ((int) this.bgPaletteRam[colorRamIndex] & 0xFF) & 0b11111;
+        int g5 = ((((int) this.bgPaletteRam[colorRamIndex + 1] & 0xFF) & 0b11) << 3) | ((((int) this.bgPaletteRam[colorRamIndex] & 0xFF) & 0b11100000) >>> 5);
+        int b5 = (((int) this.bgPaletteRam[colorRamIndex + 1] & 0xFF) & 0b01111100) >>> 2;
 
         return toARGB(r5, g5, b5);
     }
@@ -409,9 +409,9 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
     private int getARGBForObjPixelEntry(int colorNumber, int palette) {
         int colorRamIndex = (palette * 8) + (colorNumber * 2);
 
-        int r5 = this.objPaletteRam[colorRamIndex] & 0b11111;
-        int g5 = ((this.objPaletteRam[colorRamIndex + 1] & 0b11) << 3) | ((this.objPaletteRam[colorRamIndex] & 0b11100000) >>> 5);
-        int b5 = (this.objPaletteRam[colorRamIndex + 1] & 0b01111100) >>> 2;
+        int r5 = ((int) this.objPaletteRam[colorRamIndex] & 0xFF) & 0b11111;
+        int g5 = ((((int) this.objPaletteRam[colorRamIndex + 1] & 0xFF) & 0b11) << 3) | ((((int) this.objPaletteRam[colorRamIndex] & 0xFF) & 0b11100000) >>> 5);
+        int b5 = (((int) this.objPaletteRam[colorRamIndex + 1] & 0xFF) & 0b01111100) >>> 2;
 
         return toARGB(r5, g5, b5);
     }
@@ -513,7 +513,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
         if (address >= VRAM_START && address <= VRAM_END) {
             return switch (bank) {
                 case BANK_0 -> super.getVRamByte(address);
-                case BANK_1 -> this.vRamBank1[address - VRAM_START];
+                case BANK_1 -> (int) this.vRamBank1[address - VRAM_START] & 0xFF;
             };
         } else {
             throw new EmulatorException("Invalid GameBoy VRAM address \"%04X\"!".formatted(address));

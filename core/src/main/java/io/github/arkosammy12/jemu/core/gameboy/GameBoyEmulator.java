@@ -96,12 +96,6 @@ public class GameBoyEmulator implements Emulator, SM83.SystemBus {
         return this.cartridge;
     }
 
-    /*
-    public DMGMMIOBus<?> getMMIOBus() {
-        return this.mmioBus;
-    }
-     */
-
     public DMGTimerController<?> getTimerController() {
         return this.timerController;
     }
@@ -144,11 +138,6 @@ public class GameBoyEmulator implements Emulator, SM83.SystemBus {
     @Override
     public void close() {
         try {
-        /*
-        if (this.disassembler != null) {
-            this.disassembler.close();
-        }
-         */
             if (this.cartridge != null) {
                 this.cartridge.save();
             }

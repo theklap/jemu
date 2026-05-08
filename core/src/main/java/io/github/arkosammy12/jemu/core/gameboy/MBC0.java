@@ -9,8 +9,8 @@ import java.util.Optional;
 
 public class MBC0 extends GameBoyCartridge {
 
-    private final int[] rom = new int[0x8000];
-    private final int @Nullable [] sRam;
+    private final byte[] rom = new byte[0x8000];
+    private final byte @Nullable [] sRam;
     private final boolean hasBattery;
 
     public MBC0(GameBoyEmulator emulator, int cartridgeType) {
@@ -19,8 +19,8 @@ public class MBC0 extends GameBoyCartridge {
         if (cartridgeType == 0x08 || cartridgeType == 0x09) {
             this.sRam = switch (this.ramSizeHeader) {
                 case 0x00 -> null;
-                case 0x01 -> new int[0x800];
-                case 0x02 -> new int[0x2000];
+                case 0x01 -> new byte[0x800];
+                case 0x02 -> new byte[0x2000];
                 default -> throw new EmulatorException("Incompatible RAM size header $%02X for MBC0 GameBoy cartridge type!".formatted(this.ramSizeHeader));
             };
         } else {
@@ -53,11 +53,11 @@ public class MBC0 extends GameBoyCartridge {
     @Override
     public int readByte(int address) {
         if (address >= 0x0000 && address <= 0x7FFF) {
-            return this.rom[address];
+            return (int) this.rom[address] & 0xFF;
         } else if (address >= 0xA000 && address <= 0xBFFF) {
             address -= 0xA000;
             if (this.sRam != null && address < this.sRam.length) {
-                return this.sRam[address];
+                return (int) this.sRam[address] & 0xFF;
             } else {
                 return 0xFF;
             }
@@ -71,13 +71,13 @@ public class MBC0 extends GameBoyCartridge {
         if (address >= 0xA000 && address <= 0xBFFF) {
             address -= 0xA000;
             if (this.sRam != null && address < this.sRam.length) {
-                this.sRam[address] = value & 0xFF;
+                this.sRam[address] = (byte) value;
             }
         }
     }
 
     @Override
-    protected Optional<int[]> getSaveData() {
+    protected Optional<byte[]> getSaveData() {
         return Optional.ofNullable(this.hasBattery ? this.sRam : null);
     }
 

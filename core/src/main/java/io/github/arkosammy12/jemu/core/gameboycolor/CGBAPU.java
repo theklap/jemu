@@ -30,9 +30,9 @@ public class CGBAPU<E extends GameBoyColorEmulator> extends DMGAPU<E> {
         protected int readWaveRam(int address) {
             this.firstFetchConsumed = this.fetchedFirstByte;
             if (this.getEnabled()) {
-                return this.waveRam[((this.waveRamIndex - 1) & 31) / 2];
+                return (int) this.waveRam[((this.waveRamIndex - 1) & 31) / 2] & 0xFF;
             } else {
-                return this.waveRam[address - WAVERAM_START];
+                return (int) this.waveRam[address - WAVERAM_START] & 0xFF;
             }
         }
 
@@ -40,9 +40,9 @@ public class CGBAPU<E extends GameBoyColorEmulator> extends DMGAPU<E> {
         protected void writeWaveRam(int address, int value) {
             this.firstFetchConsumed = this.fetchedFirstByte;
             if (this.getEnabled()) {
-                this.waveRam[((this.waveRamIndex - 1) & 31) / 2] = value & 0xFF;
+                this.waveRam[((this.waveRamIndex - 1) & 31) / 2] = (byte) value;
             } else {
-                this.waveRam[address - WAVERAM_START] = value & 0xFF;
+                this.waveRam[address - WAVERAM_START] = (byte) value;
             }
         }
 

@@ -46,15 +46,15 @@ public class RTCMBC3 extends MBC3 {
                 return;
             }
 
-            this.internalSeconds = saveData[rtcDataStart] & 0xFF;
-            this.internalMinutes = saveData[rtcDataStart + 4] & 0xFF;
-            this.internalHours = saveData[rtcDataStart + 8] & 0xFF;
-            this.internalDays = ((saveData[rtcDataStart + 16] != 0 ? 1 : 0) << 8) | (saveData[rtcDataStart + 12] & 0xFF);
-            this.seconds = saveData[rtcDataStart + 20] & 0xFF;
-            this.minutes = saveData[rtcDataStart + 24] & 0xFF;
-            this.hours = saveData[rtcDataStart + 28] & 0xFF;
-            this.daysLower = saveData[rtcDataStart + 32] & 0xFF;
-            this.daysUpperAndControl |= (saveData[rtcDataStart + 36] != 0) ? 1 : 0;
+            this.internalSeconds = (int) saveData[rtcDataStart] & 0xFF;
+            this.internalMinutes = (int) saveData[rtcDataStart + 4] & 0xFF;
+            this.internalHours = (int) saveData[rtcDataStart + 8] & 0xFF;
+            this.internalDays = (((int) saveData[rtcDataStart + 16] != 0 ? 1 : 0) << 8) | ((int) saveData[rtcDataStart + 12] & 0xFF);
+            this.seconds = (int) saveData[rtcDataStart + 20] & 0xFF;
+            this.minutes = (int) saveData[rtcDataStart + 24] & 0xFF;
+            this.hours = (int) saveData[rtcDataStart + 28] & 0xFF;
+            this.daysLower = (int) saveData[rtcDataStart + 32] & 0xFF;
+            this.daysUpperAndControl |= ((int) saveData[rtcDataStart + 36] != 0) ? 1 : 0;
 
         }
     }
@@ -158,32 +158,32 @@ public class RTCMBC3 extends MBC3 {
 
 
     @Override
-    protected Optional<int[]> getSaveData() {
+    protected Optional<byte[]> getSaveData() {
         return super.getSaveData().map(data -> {
 
             // VBA-M format 48-byte version. We write 7fffffff7fffffff in little-endian as we do not care about the UNIX timestamp
-            int[] dataWithRtc = new int[data.length + 48];
+            byte[] dataWithRtc = new byte[data.length + 48];
 
             System.arraycopy(data, 0, dataWithRtc, 0, data.length);
 
-            dataWithRtc[data.length] = this.internalSeconds & 0xFF;
-            dataWithRtc[data.length + 4] = this.internalMinutes & 0xFF;
-            dataWithRtc[data.length + 8] = this.internalHours & 0xFF;
-            dataWithRtc[data.length + 12] = this.internalDays & 0xFF;
-            dataWithRtc[data.length + 16] = (this.internalDays >>> 8) & 1;
-            dataWithRtc[data.length + 20] = this.seconds & 0xFF;
-            dataWithRtc[data.length + 24] = this.minutes & 0xFF;
-            dataWithRtc[data.length + 28] = this.hours & 0xFF;
-            dataWithRtc[data.length + 32] = this.daysLower & 0xFF;
-            dataWithRtc[data.length + 36] = this.daysUpperAndControl & 1;
-            dataWithRtc[data.length + 40] = 0xFF;
-            dataWithRtc[data.length + 41] = 0xFF;
-            dataWithRtc[data.length + 42] = 0xFF;
-            dataWithRtc[data.length + 43] = 0x7F;
-            dataWithRtc[data.length + 44] = 0xFF;
-            dataWithRtc[data.length + 45] = 0xFF;
-            dataWithRtc[data.length + 46] = 0xFF;
-            dataWithRtc[data.length + 47] = 0x7F;
+            dataWithRtc[data.length] = (byte) (this.internalSeconds & 0xFF);
+            dataWithRtc[data.length + 4] = (byte) (this.internalMinutes & 0xFF);
+            dataWithRtc[data.length + 8] = (byte) (this.internalHours & 0xFF);
+            dataWithRtc[data.length + 12] = (byte) (this.internalDays & 0xFF);
+            dataWithRtc[data.length + 16] = (byte) ((this.internalDays >>> 8) & 1);
+            dataWithRtc[data.length + 20] = (byte) (this.seconds & 0xFF);
+            dataWithRtc[data.length + 24] = (byte) (this.minutes & 0xFF);
+            dataWithRtc[data.length + 28] = (byte) (this.hours & 0xFF);
+            dataWithRtc[data.length + 32] = (byte) (this.daysLower & 0xFF);
+            dataWithRtc[data.length + 36] = (byte) (this.daysUpperAndControl & 1);
+            dataWithRtc[data.length + 40] = (byte) 0xFF;
+            dataWithRtc[data.length + 41] = (byte) 0xFF;
+            dataWithRtc[data.length + 42] = (byte) 0xFF;
+            dataWithRtc[data.length + 43] = (byte) 0x7F;
+            dataWithRtc[data.length + 44] = (byte) 0xFF;
+            dataWithRtc[data.length + 45] = (byte) 0xFF;
+            dataWithRtc[data.length + 46] = (byte) 0xFF;
+            dataWithRtc[data.length + 47] = (byte) 0x7F;
 
             return dataWithRtc;
 

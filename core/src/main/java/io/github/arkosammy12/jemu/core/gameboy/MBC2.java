@@ -11,8 +11,8 @@ public class MBC2 extends GameBoyCartridge {
 
     private static final int A8_MASK = 1 << 8;
 
-    private final int[][] romBanks;
-    private final int @Nullable [] sRam;
+    private final byte[][] romBanks;
+    private final byte @Nullable [] sRam;
     private final boolean hasBattery;
 
     private final int romBankMask;
@@ -24,15 +24,15 @@ public class MBC2 extends GameBoyCartridge {
         super(emulator, cartridgeType);
 
         this.romBanks = switch (this.romSizeHeader) {
-            case 0x00 -> new int[2][0x4000];
-            case 0x01 -> new int[4][0x4000];
-            case 0x02 -> new int[8][0x4000];
-            case 0x03 -> new int[16][0x4000];
+            case 0x00 -> new byte[2][0x4000];
+            case 0x01 -> new byte[4][0x4000];
+            case 0x02 -> new byte[8][0x4000];
+            case 0x03 -> new byte[16][0x4000];
             default -> throw new EmulatorException("Incompatible ROM size header $%02X for MBC2 GameBoy cartridge type!".formatted(this.romSizeHeader));
         };
 
         if (cartridgeType == 0x06) {
-            this.sRam = new int[512];
+            this.sRam = new byte[512];
             this.hasBattery = true;
         } else {
             this.sRam = null;
@@ -41,7 +41,7 @@ public class MBC2 extends GameBoyCartridge {
 
         try {
             for (int i = 0; i < this.romBanks.length; i++) {
-                int[] romBank = this.romBanks[i];
+                byte[] romBank = this.romBanks[i];
                 int start = i * romBank.length;
                 System.arraycopy(this.originalRom, start, romBank, 0, romBank.length);
             }
@@ -66,12 +66,12 @@ public class MBC2 extends GameBoyCartridge {
     @Override
     public int readByte(int address) {
         if (address >= 0x0000 && address <= 0x3FFF) {
-            return this.romBanks[0][address];
+            return (int) this.romBanks[0][address] & 0xFF;
         } else if (address >= 0x4000 && address <= 0x7FFF) {
-            return this.romBanks[(this.romBankNumber & 0xF) & this.romBankMask][address - 0x4000];
+            return (int) this.romBanks[(this.romBankNumber & 0xF) & this.romBankMask][address - 0x4000] & 0xFF;
         } else if (address >= 0xA000 && address <= 0xBFFF) {
             if ((this.ramGate & 0xF) == 0b1010 && this.sRam != null) {
-                return this.sRam[address & 0x1FF] | 0xF0;
+                return ((int) this.sRam[address & 0x1FF] & 0xFF) | 0xF0;
             } else {
                 return 0xFF;
             }
@@ -94,13 +94,13 @@ public class MBC2 extends GameBoyCartridge {
             }
         } else if (address >= 0xA000 && address <= 0xBFFF) {
             if ((this.ramGate & 0xF) == 0b1010 && this.sRam != null) {
-                this.sRam[address & 0x1FF] = value & 0xFF;
+                this.sRam[address & 0x1FF] = (byte) value;
             }
         }
     }
 
     @Override
-    protected Optional<int[]> getSaveData() {
+    protected Optional<byte[]> getSaveData() {
         return Optional.ofNullable(this.hasBattery ? this.sRam : null);
     }
 

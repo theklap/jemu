@@ -42,7 +42,7 @@ public class CosmacVIPAudioGenerator<E extends CosmacVIPEmulator> extends AudioG
             return Optional.empty();
         }
         AudioDriver audioDriver = optionalAudioDriver.get();
-        double step = (4000 * Math.pow(2.0, (175 - 64) / 48.0)) / 128.0 / audioDriver.getSampleRate();
+        double step = (4000 * Math.pow(2.0, (175 - 64) / 48.0)) / 128.0 / (double) audioDriver.getSampleRate();
         byte[] data = new byte[audioDriver.getSamplesPerFrame()];
         for (int i = 0; i < data.length; i++) {
             int bitStep = (int) (this.phase * 128);

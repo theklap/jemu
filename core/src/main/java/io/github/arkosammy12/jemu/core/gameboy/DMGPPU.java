@@ -39,8 +39,8 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
             0xFF0F380F
     };
 
-    protected final int[] vRam = new int[0x2000];
-    private final int[] oam = new int[0x00A0]; // TODO: OAM BUG (ONLY FOR DMG) GODDAMMIT!
+    protected final byte[] vRam = new byte[0x2000];
+    private final byte[] oam = new byte[0x00A0]; // TODO: OAM BUG (ONLY FOR DMG) GODDAMMIT!
 
     private int lcdControl;
     private int ppuStatus; // TODO: STAT WRITE BUG (ONLY FOR DMG)!!!!
@@ -127,14 +127,14 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         if (address >= OAM_START && address <= OAM_END) {
             int ppuMode = this.getPpuMode();
             if (Mode.MODE_0_HBLANK.matchesValue(ppuMode) || Mode.MODE_1_VBLANK.matchesValue(ppuMode) || !this.getLcdPpuEnable()) {
-                return this.oam[address - OAM_START];
+                return (int) this.oam[address - OAM_START] & 0xFF;
             } else {
                 return 0xFF;
             }
 
         } else if (address >= VRAM_START && address <= VRAM_END) {
             if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
-                return this.vRam[address - VRAM_START];
+                return (int) this.vRam[address - VRAM_START] & 0xFF;
             } else {
                 return 0xFF;
             }
@@ -161,11 +161,11 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         if (address >= OAM_START && address <= OAM_END) {
             int ppuMode = this.getPpuMode();
             if (Mode.MODE_0_HBLANK.matchesValue(ppuMode) || Mode.MODE_1_VBLANK.matchesValue(ppuMode) || !this.getLcdPpuEnable()) {
-              this.oam[address - OAM_START] = value & 0xFF;
+              this.oam[address - OAM_START] = (byte) value;
             }
         } else if (address >= VRAM_START && address <= VRAM_END) {
             if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
-                this.vRam[address - VRAM_START] = value & 0xFF;
+                this.vRam[address - VRAM_START] = (byte) value;
             }
         } else {
             switch (address) {
@@ -360,14 +360,6 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     }
 
     protected void onHBlankStart() {
-        /*
-        if (this.spriteCount > 0) {
-            Logger.info("Sprites: %d. Scanline cycle: %d. Extra dots %d. Extra M-cycles: %f. Cycles spent stalling or processing sprites: %d".formatted(this.spriteCount, this.scanlineCycle, (this.scanlineCycle - 80 - 172), (double)(this.scanlineCycle - 80 - 172)/ 4, dotsSpentInSpritePlusStalling));
-        }
-         */
-
-        //this.dotsSpentInSpritePlusStalling = 0;
-        //this.spriteCount = 0;
 
         this.scannedEntries = 0;
 
@@ -497,17 +489,6 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
             this.tickPixelShifter();
         }
 
-        /*
-        if (currentSpriteEntryIndex >= 0) {
-            if (getSpriteXFromEntry(this.spriteBuffer[currentSpriteEntryIndex]) == 160) {
-                int a = 1;
-            }
-            if (getSpriteXFromEntry(this.spriteBuffer[currentSpriteEntryIndex]) == 0) {
-                int a = 1;
-            }
-        }
-         */
-
         if (!fetchingSprite || this.backgroundFifo.isEmpty() || (this.bgFifoStep <= 4)) {
             this.tickBackgroundFifo();
         } else {
@@ -516,12 +497,6 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
             }
             this.tickSpriteFifo();
         }
-
-        /*
-        if (fetchingSprite) {
-            dotsSpentInSpritePlusStalling++;
-        }
-         */
 
     }
 
@@ -566,7 +541,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
                         effectiveAddress = 0x8000 + (this.bgFifoCurrentTileNumber * 16);
                     } else {
                         byte signedTileNumber =  (byte) this.bgFifoCurrentTileNumber;
-                        effectiveAddress = 0x9000 + (signedTileNumber * 16);
+                        effectiveAddress = 0x9000 + ((int) signedTileNumber * 16);
                     }
 
                     if (this.isRenderingWindow()) {
@@ -766,6 +741,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         return (this.lcdControl & 0b00000010) != 0;
     }
 
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     protected boolean getBackgroundAndWindowEnable() {
         return (this.lcdControl & 0b00000001) != 0;
     }
@@ -815,7 +791,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
 
     public void writeOamDma(int address, int value) {
         if (address >= OAM_START && address <= OAM_END) {
-            this.oam[address - OAM_START] = value & 0xFF;
+            this.oam[address - OAM_START] = (byte) value;
         } else {
             throw new EmulatorException("Invalid GameBoy OAM address \"%04X\"!".formatted(address));
         }
@@ -823,7 +799,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
 
     private int getOamByte(int address) {
         if (address >= OAM_START && address <= OAM_END) {
-            return this.oam[address - OAM_START];
+            return (int) this.oam[address - OAM_START] & 0xFF;
         } else {
             throw new EmulatorException("Invalid GameBoy OAM address \"%04X\"!".formatted(address));
         }
@@ -831,7 +807,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
 
     protected int getVRamByte(int address) {
         if (address >= VRAM_START && address <= VRAM_END) {
-            return this.vRam[address - VRAM_START];
+            return (int) this.vRam[address - VRAM_START] & 0xFF;
         } else {
             throw new EmulatorException("Invalid GameBoy VRAM address \"%04X\"!".formatted(address));
         }
