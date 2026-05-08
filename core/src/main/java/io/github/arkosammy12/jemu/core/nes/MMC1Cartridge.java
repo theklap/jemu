@@ -2,6 +2,7 @@ package io.github.arkosammy12.jemu.core.nes;
 
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import io.github.arkosammy12.jemu.core.nes.ines.INESFile;
+import io.github.arkosammy12.jemu.core.nes.ines.NES20File;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -35,12 +36,21 @@ public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         byte[] programRomData = iNESFile.getProgramRom();
         this.programRom = Arrays.copyOf(programRomData, programRomData.length);
 
-        this.programRam = new byte[iNESFile.getProgramRamSize()];
+        int programRamSize = iNESFile.getProgramRamSize();
+        if (iNESFile instanceof NES20File nes20File) {
+            programRamSize += nes20File.getNonVolatileProgramRamSizeBytes();
+        }
+
+        this.programRam = new byte[programRamSize];
 
         Optional<byte[]> characterRomOptional = iNESFile.getCharacterRom();
         if (characterRomOptional.isEmpty()) {
             this.characterRom = null;
-            this.characterRam = new byte[iNESFile.getCharacterRamSize()];
+            int characterRamSize = iNESFile.getCharacterRamSize();
+            if (iNESFile instanceof NES20File nes20File) {
+                characterRamSize += nes20File.getNonVolatileCharacterRamSizeBytes();
+            }
+            this.characterRam = new byte[characterRamSize];
         } else {
             byte[] characterRomData = characterRomOptional.get();
             this.characterRom = Arrays.copyOf(characterRomData, characterRomData.length);
