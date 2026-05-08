@@ -12,7 +12,7 @@ import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_MIRROR_END;
 import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_START;
 import static io.github.arkosammy12.jemu.core.nes.ines.INESFile.KB_32;
 
-public class MMC1Cartridge <E extends NESEmulator> extends NESCartridge<E> {
+public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     private final byte[] programRom;
     private final byte[] programRam;
@@ -24,7 +24,7 @@ public class MMC1Cartridge <E extends NESEmulator> extends NESCartridge<E> {
     private int loadRegisterWriteCounter;
 
     private int loadRegister;
-    private int control;
+    private int control = 0x0C;
     private int chrBank0;
     private int chrBank1;
     private int prgBank;
