@@ -600,9 +600,9 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
 
         @Override
         protected int getDigitalOutput() {
-            //                                  v Workaround to prevent aliasing with very high frequencies
-            if (this.getLengthCounter() <= 0 || this.getTimerReload() <= 0) {
-                return 0;
+            // Workaround to prevent aliasing with very high frequencies
+            if (this.getTimerReload() < 2) {
+                return 7;
             }
             return TRIANGLE_WAVEFORM_LUT[this.sequencerStep];
         }
