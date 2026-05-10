@@ -1007,10 +1007,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
                 int spriteFetcherPatternTableHigh = this.readBytePPU(this.getSpritePatternByteAddress(true));
 
-                boolean inRange = this.isSpriteYInRange(this.spriteFetcherYPosition);
-
-                // TODO: Properly implement the sprite shifter's counter and output+shift modes, as well as the signal (with a 2.5 dot delay), to reset all shifters back to counting mode
                 if (this.isRenderingEnabled()) {
+                    boolean inRange = this.isSpriteYInRange(this.spriteFetcherYPosition);
                     this.spriteShifters[this.spriteShifterInitIndex].initialize(inRange ? this.spriteFetcherPatternTableLow : 0, inRange ? spriteFetcherPatternTableHigh : 0, xPosition, this.spriteFetcherAttributeByte);
                 }
 
