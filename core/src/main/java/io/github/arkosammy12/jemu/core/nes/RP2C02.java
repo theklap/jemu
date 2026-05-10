@@ -230,6 +230,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
     private final ActionSignal toggleRenderingSignal;
     private final ActionSignal clearVblOnPpuStatusReadSignal;
     private final ActionSignal setSprite0HItSignal;
+    private final ActionSignal refreshSpriteShifters;
 
     private int decayPpuDataBusCountdown;
 
@@ -289,6 +290,11 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         this.setSprite0HItSignal = new ActionSignal(_ -> {
             if (this.isRenderingEnabled()) {
                 this.setSprite0HitFlag(true);
+            }
+        });
+        this.refreshSpriteShifters = new ActionSignal(_ -> {
+            for (SpriteShifter shifter : this.spriteShifters) {
+                shifter.refreshXPositionCounters();
             }
         });
     }
@@ -526,6 +532,9 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
         switch (this.currentDotHalf) {
             case FIRST -> {
+
+                this.refreshSpriteShifters.tick();
+
                 if (this.isRenderScanline()) {
                     if (this.dotNumber == 65 || this.dotNumber == 257 || (this.dotSkipped && this.dotNumber == 1) || (!this.dotSkipped && this.dotNumber == 0)) {
                         if (this.isRenderingEnabled()) {
@@ -551,6 +560,12 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                         }
                     }
 
+                    if (this.dotNumber == 339) {
+                        if (this.isRenderingEnabled()) {
+                            this.refreshSpriteShifters.trigger(4, 0);
+                        }
+                    }
+
                 }
             }
             case SECOND -> {
@@ -561,12 +576,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                         this.tickBgFetcher();
                     }
 
-                    // TODO: Use an action signal for this
-                    if (this.isRenderingEnabled() && ((this.dotSkipped && this.dotNumber == 1) || (!this.dotSkipped && this.dotNumber == 0))) {
-                        for (SpriteShifter shifter : this.spriteShifters) {
-                            shifter.refreshXPositionCounters();
-                        }
-                    }
+                    this.refreshSpriteShifters.tick();
 
                     if (this.isVisibleScanline()) {
                         if (this.dotNumber == 0) {
