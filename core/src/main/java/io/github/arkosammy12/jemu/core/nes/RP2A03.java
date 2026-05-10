@@ -78,15 +78,54 @@ public class RP2A03<E extends NESEmulator> implements Bus {
     @Override
     public int readByte(int address) {
         if (!this.isDmaUsingExternalBusOnThisCycle()) {
-            this.internalDataBus = this.emulator.getCpuBus().readByte(address);
+            int readByte = this.emulator.getCpuBus().readByte(address);
+            if (readByte >= 0) {
+                this.internalDataBus = readByte & 0xFF;
+            }
         }
         return this.internalDataBus;
     }
 
     @Override
     public void writeByte(int address, int value) {
+        this.writeByteRicohCore(address, value);
+    }
+
+    private void writeByteRicohCore(int address, int value) {
         this.internalDataBus = value;
         this.emulator.getCpuBus().writeByte(address, value);
+    }
+
+    private int readByteDMA(int address) {
+        int combinedAddress = this.getCombinedRicohAddress(address);
+        int activatedRegisterValue = -1;
+
+        // If the combined Ricoh address activates its internal registers, perform the read
+        if (combinedAddress >= 0x4000 && combinedAddress <= 0x401F) {
+            activatedRegisterValue = this.readByteIO(combinedAddress);
+        }
+
+        int readByte;
+
+        // If the DMA is trying to activate the Ricoh registers by reading from an address within this range
+        // but the CPU's current value on its address bus combined with the Ricoh address didn't activate the registers,
+        // then the read cannot return a concrete value due to the registers having failed to being activated
+        if (address >= 0x4000 && address <= 0x401F) {
+            readByte = activatedRegisterValue;
+        } else {
+            readByte = this.emulator.getCpuBus().readByte(address);
+        }
+
+        // Only update the internal data bus if the read value is not open bus
+        if (readByte >= 0) {
+            this.internalDataBus = readByte & 0xFF;
+        }
+
+        // If a Ricoh register was activated, the final value on the internal bus is the one we just read from the activated register
+        if (activatedRegisterValue >= 0) {
+            this.internalDataBus = activatedRegisterValue;
+        }
+        return this.internalDataBus;
     }
 
     public int readByteIO(int address) {
@@ -177,7 +216,7 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 					case ALIGNMENT -> this.dmcDmaStep = DmcDmaStep.GET;
 					case GET -> {
                         // TODO: DMC DM bus conflicts...
-						this.apu.writeDmcDma(this.emulator.getCpuBus().readByte(this.dmcDmaAddress));
+						this.apu.writeDmcDma(this.readByteDMA(this.dmcDmaAddress));
 						this.dmcDmaStep = DmcDmaStep.NONE;
 						this.dmcDmaRequestPending = false;
 					}
@@ -199,7 +238,7 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 				}
 
 				if (this.oamDmaCurrentData >= 0 && this.oamDmaTransferredBytes < 256) {
-					this.emulator.getCpuBus().writeByte(OAMDATA_ADDR, this.oamDmaCurrentData);
+					this.writeByteRicohCore(OAMDATA_ADDR, this.oamDmaCurrentData);
 					this.oamDmaTransferredBytes++;
 					this.oamDmaCurrentData = -1;
 				}
@@ -230,7 +269,7 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 
     private void tickOamDmaGetIfOngoing() {
 		if (this.oamDmaTransferredBytes < 256) {
-			this.oamDmaCurrentData = this.emulator.getCpuBus().readByte((this.oamDmaSourceAddressHighByte << 8) | (this.oamDmaTransferredBytes & 0xFF));
+			this.oamDmaCurrentData = this.readByteDMA((this.oamDmaSourceAddressHighByte << 8) | (this.oamDmaTransferredBytes & 0xFF));
 		}
 	}
 
@@ -260,6 +299,10 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 
     public boolean getRDYSignal() {
         return this.oamDmaTransferredBytes < 256 || this.dmcDmaStep != DmcDmaStep.NONE;
+    }
+
+    private int getCombinedRicohAddress(int address) {
+        return (this.cpu.getLastAddress() & 0xFFE0) | (address & 0x1F);
     }
 
     public enum APUHalfCycleType {
