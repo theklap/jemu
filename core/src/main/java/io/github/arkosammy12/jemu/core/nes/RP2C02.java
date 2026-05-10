@@ -390,6 +390,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 setT((getT() &  ~0xC00) | ((value & 0b11) << 10));
                 this.setNMISignal(this.getVBlankNMIEnable());
             }
+            // TODO: Greyscale flag has a delay and stuff. Check out https://forums.nesdev.org/viewtopic.php?p=256737#p256737
             case PPUMASK_ADDR -> {
                 boolean originalEnableRendering = this.enableBackgroundRendering() || this.enableSpriteRendering();
                 this.ppuMask = value & 0xFF;
