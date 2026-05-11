@@ -45,7 +45,7 @@ public class MBC0 extends GameBoyCartridge {
                 try {
                     System.arraycopy(saveData, 0, this.sRam, 0, Math.min(saveData.length, this.sRam.length));
                 } catch (Exception e) {
-                    Logger.error("Error reading save data for GameBoy MBC2 cartridge: {}", e);
+                    Logger.error("Error reading save data for GameBoy MBC0 cartridge: {}", e);
                 }
             });
         }
