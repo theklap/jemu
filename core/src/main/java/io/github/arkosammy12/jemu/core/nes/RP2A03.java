@@ -195,10 +195,11 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 	}
 
     private void cycleDma(boolean isHalted) {
-		if (!((this.oamDmaTransferredBytes < 256 || this.dmcDmaStep != DmcDmaStep.NONE) && isHalted)) {
-			return;
-		}
-		// TODO: Proper bus isolation in the specific case (which I still don't yet understand) that makes the DMA units not update the data bus
+        if (!isHalted || (this.oamDmaTransferredBytes >= 256 && this.dmcDmaStep == DmcDmaStep.NONE)) {
+            return;
+        }
+
+        // TODO: Proper bus isolation in the specific case (which I still don't yet understand) that makes the DMA units not update the data bus
 		switch (this.apuHalfCycleType) {
 			case GET -> {
 				switch (this.dmcDmaStep) {
