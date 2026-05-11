@@ -584,7 +584,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                     if (this.isVisibleScanline()) {
                         if (this.dotNumber == 0) {
                             // TODO: Make sure this is correct. We need to model the PPU read as taking 2 dots, where the first dot places the address on the address bus, allowing mappers to react to it
-                            // even if the read isn't actually performed. This read effectively takes place in dot 1, but this is where the address is placed on the address bus
+                            // even if the read isn't actually performed. This read doesn't actually take place effectively. The signal that resets the pipeline arrives on the following dot,
+                            // effectively cancelling the read midway through its execution, but the address is still seen by external sources, including cartridges...
                             this.readBytePPU(this.getBackgroundPatternByteAddress(false));
                         } else if (this.dotNumber >= 1 && this.dotNumber <= 64) {
                             this.tickSecondaryOamClear();
@@ -640,7 +641,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 } else if (this.scanlineNumber == this.vblScanline - 1) {
                     if (this.dotNumber == 0) {
                         // TODO: Make sure this is correct. We need to model the PPU read as taking 2 dots, where the first dot places the address on the address bus, allowing mappers to react to it
-                        // even if the read isn't actually performed. This read effectively takes place in dot 1, but this is where the address is placed on the address bus
+                        // even if the read isn't actually performed. This read doesn't actually take place effectively. The signal that resets the pipeline arrives on the following dot,
+                        // effectively cancelling the read midway through its execution, but the address is still seen by external sources, including cartridges...
                         this.readBytePPU(this.getBackgroundPatternByteAddress(false));
                     }
                 } else if (this.scanlineNumber == this.vblScanline) {
