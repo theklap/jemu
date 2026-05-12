@@ -116,7 +116,7 @@ public class RP2A03<E extends NESEmulator> implements Bus {
                     readByte = activatedRegisterByte;
                 }
             }
-        }
+        };
 
         if (readByte >= 0) {
             this.internalDataBus = readByte & 0xFF;

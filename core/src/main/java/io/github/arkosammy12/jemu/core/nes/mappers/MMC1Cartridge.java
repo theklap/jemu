@@ -13,7 +13,7 @@ import static io.github.arkosammy12.jemu.core.nes.RP2C02.CIRAM_MIRROR_END;
 import static io.github.arkosammy12.jemu.core.nes.RP2C02.CIRAM_START;
 import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_MIRROR_END;
 import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_START;
-import static io.github.arkosammy12.jemu.core.nes.ines.INESFile.KB_32;
+import static io.github.arkosammy12.jemu.core.nes.ines.INESFile.KB_16;
 
 public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
@@ -193,27 +193,27 @@ public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     private int mapPrgRomAddress(int address) {
         address &= 0x7FFF;
-        int a18;
+        int prgRomA18;
         if ((this.control & (1 << 4)) == 0 || address <= 0x0FFF) {
-            a18 = (this.chrBank0 & (1 << 4)) << 14;
+            prgRomA18 = (this.chrBank0 & (1 << 4)) << 14;
         } else {
-            a18 = (this.chrBank1 & (1 << 4)) << 14;
+            prgRomA18 = (this.chrBank1 & (1 << 4)) << 14;
         }
 
         int bankBits = this.prgBank & 0b1111;
         return switch (this.getProgramRomBankMode()) {
-            case 0, 1 -> address | ((bankBits & ~1) << 14) | (a18);
+            case 0, 1 -> address | ((bankBits & ~1) << 14) | (prgRomA18);
             case 2 -> {
                 if (address <= 0x3FFF) {
                     bankBits = 0;
                 }
-                yield (address & 0x3FFF) | (bankBits << 14) | (a18);
+                yield (address & 0x3FFF) | (bankBits << 14) | (prgRomA18);
             }
             case 3 -> {
                 if (address > 0x3FFF) {
                     bankBits = 0b1111;
                 }
-                yield (address & 0x3FFF) | (bankBits << 14) | (a18);
+                yield (address & 0x3FFF) | (bankBits << 14) | (prgRomA18);
             }
             default -> throw new EmulatorException("NES MMC1 PRG-ROM bankBits mode bits not in [0, 3]!");
         };
@@ -227,7 +227,7 @@ public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         } else {
             bankBits = (this.chrBank1 >>> 2) & 0b11;
         }
-        if (this.programRam.length == KB_32) {
+        if (this.programRam.length <= KB_16) {
             bankBits >>>= 1;
         }
         return address | (bankBits << 13);
