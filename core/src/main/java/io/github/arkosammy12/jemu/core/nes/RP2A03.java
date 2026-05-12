@@ -98,33 +98,25 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 
     private int readByteDMA(int address) {
         int combinedAddress = this.getCombinedRicohAddress(address);
-        int activatedRegisterValue = -1;
-
-        // If the combined Ricoh address activates its internal registers, perform the read
-        if (combinedAddress >= 0x4000 && combinedAddress <= 0x401F) {
-            activatedRegisterValue = this.readByteIO(combinedAddress);
-        }
-
-        int readByte;
-
-        // If the DMA is trying to activate the Ricoh registers by reading from an address within this range
-        // but the CPU's current value on its address bus combined with the Ricoh address didn't activate the registers,
-        // then the read cannot return a concrete value due to the registers having failed to being activated
+        int readByte = -1;
         if (address >= 0x4000 && address <= 0x401F) {
-            readByte = activatedRegisterValue;
+            if (combinedAddress >= 0x4000 && combinedAddress <= 0x401F) {
+                readByte = this.emulator.getCpuBus().readByte(address);
+            }
         } else {
             readByte = this.emulator.getCpuBus().readByte(address);
+            int activatedRegisterByte = this.readByteIO(combinedAddress);
+            if (combinedAddress == JOY1_ADDR || combinedAddress == JOY2_ADDR && readByte >= 0) {
+                readByte = (activatedRegisterByte & 0x1F) | (readByte & 0xE0);
+            } else {
+                readByte = activatedRegisterByte;
+            }
         }
 
-        // Only update the internal data bus if the read value is not open bus
         if (readByte >= 0) {
             this.internalDataBus = readByte & 0xFF;
         }
 
-        // If a Ricoh register was activated, the final value on the internal bus is the one we just read from the activated register
-        if (activatedRegisterValue >= 0) {
-            this.internalDataBus = activatedRegisterValue;
-        }
         return this.internalDataBus;
     }
 
@@ -239,7 +231,7 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 				}
 
 				if (this.oamDmaCurrentData >= 0 && this.oamDmaTransferredBytes < 256) {
-					this.writeByteRicohCore(OAMDATA_ADDR, this.oamDmaCurrentData);
+					this.emulator.getCpuBus().writeByte(OAMDATA_ADDR, this.oamDmaCurrentData);
 					this.oamDmaTransferredBytes++;
 					this.oamDmaCurrentData = -1;
 				}
