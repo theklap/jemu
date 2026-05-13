@@ -175,8 +175,12 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
         this.clockQuarterFrameSignal.trigger(1, 0);
     }
 
-    private void trySetFrameCounterIRQFlag(boolean forceSet) {
-        this.frameInterruptFlag = forceSet || !this.frameCounterInterruptInhibitFlag;
+    private void trySetFrameCounterIRQFlag() {
+        this.frameInterruptFlag = !this.frameCounterInterruptInhibitFlag;
+    }
+
+    private void forceSetFrameCounterIRQFlag() {
+        this.frameInterruptFlag = true;
     }
 
     public void writeDmcDma(int value) {
@@ -233,20 +237,18 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
                     case GET -> {
                         switch (this.frameCounterCycleCounter) {
                             case 14914 -> {
-                                this.trySetFrameCounterIRQFlag(true);
+                                this.forceSetFrameCounterIRQFlag();
                                 this.frameInterruptFlagForIRQSignal = !this.frameCounterInterruptInhibitFlag;
                             }
                             case 14915 -> {
-                                this.trySetFrameCounterIRQFlag(false);
+                                this.trySetFrameCounterIRQFlag();
                                 this.frameCounterCycleCounter = 0;
                             }
                         }
                     }
                     case PUT -> {
                         switch (this.frameCounterCycleCounter) {
-                            case 3728 - 2, 11185 - 2 -> {
-                                this.signalQuarterFrameClock();
-                            }
+                            case 3728 - 2, 11185 - 2 -> this.signalQuarterFrameClock();
                             case 7456 - 1 -> {
                                 this.signalQuarterFrameClock();
                                 this.signalHalfFrameClock();
@@ -254,11 +256,9 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
                             case 14914 - 1 -> {
                                 this.signalQuarterFrameClock();
                                 this.signalHalfFrameClock();
-                                this.trySetFrameCounterIRQFlag(true);
+                                this.forceSetFrameCounterIRQFlag();
                             }
-                            case 14914 -> {
-                                this.trySetFrameCounterIRQFlag(false);
-                            }
+                            case 14914 -> this.trySetFrameCounterIRQFlag();
                         }
                         this.frameCounterCycleCounter++;
                     }
@@ -273,9 +273,7 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
                     }
                     case PUT -> {
                         switch (this.frameCounterCycleCounter) {
-                            case 3728, 11185 -> {
-                                this.signalQuarterFrameClock();
-                            }
+                            case 3728, 11185 -> this.signalQuarterFrameClock();
                             case 7456 - 1, 18640 - 1 -> {
                                 this.signalQuarterFrameClock();
                                 this.signalHalfFrameClock();
