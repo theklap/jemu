@@ -49,6 +49,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
 
     private static final float MAX_VOLUME = 15.0f;
     private static final float SAMPLE_SCALE = 127.0f;
+    private static final double CAPACITOR_CONSTANT = 0.999958;
 
     private final byte[] leftChannelSamples = new byte[GameBoyEmulator.T_CYCLES_PER_FRAME];
     private final byte[] rightChannelSamples = new byte[GameBoyEmulator.T_CYCLES_PER_FRAME];
@@ -292,7 +293,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
         double out = 0;
         if (dacEnable) {
             out = in - this.leftCapacitor;
-            this.leftCapacitor = in - out * 0.999958;
+            this.leftCapacitor = in - out * CAPACITOR_CONSTANT;
         }
         return out;
     }
@@ -301,7 +302,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
         double out = 0;
         if (dacEnable) {
             out = in - this.rightCapacitor;
-            this.rightCapacitor = in - out * 0.999958;
+            this.rightCapacitor = in - out * CAPACITOR_CONSTANT;
         }
         return out;
     }

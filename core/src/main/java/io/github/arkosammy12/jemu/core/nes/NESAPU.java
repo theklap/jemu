@@ -15,6 +15,7 @@ import static io.github.arkosammy12.jemu.core.nes.RP2A03.*;
 public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements Bus {
 
     private static final double OUTPUT_GAIN = 127;
+    private static final double CAPACITOR_CONSTANT = 0.999958;
 
     private final byte[] sampleBuffer;
     private int currentSampleIndex;
@@ -235,7 +236,7 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
 
     private double highPassFilter(double in) {
         double out = in - this.capacitor;
-        this.capacitor = in - out * 0.999958;
+        this.capacitor = in - out * CAPACITOR_CONSTANT;
         return out;
     }
 
