@@ -22,7 +22,7 @@ public class NESCPUBus<E extends NESEmulator> implements Bus {
     private final E emulator;
 
     private final int[] ram = new int[0x800];
-    private int dataBus;
+    private int externalDataBus;
 
     public NESCPUBus(E emulator) {
         this.emulator = emulator;
@@ -52,17 +52,17 @@ public class NESCPUBus<E extends NESEmulator> implements Bus {
         }
 
         if (ret >= 0) {
-            this.dataBus = ret;
+            this.externalDataBus = ret;
             return ret;
         } else {
-            return this.dataBus;
+            return this.externalDataBus;
         }
     }
 
     @Override
     public void writeByte(int address, int value) {
         value &= 0xFF;
-        this.dataBus = value;
+        this.externalDataBus = value;
         if (address >= RAM_START && address <= RAM_END) {
             this.ram[address & 0x7FF] = value;
         }
@@ -70,6 +70,10 @@ public class NESCPUBus<E extends NESEmulator> implements Bus {
         this.emulator.getVideoGenerator().writeByte(address, value);
         this.emulator.getRicohCore().writeByteRegister(address, value);
         this.emulator.getCartridge().writeByte(address, value);
+    }
+
+    void setExternalDataBus(int value) {
+        this.externalDataBus = value & 0xFF;
     }
 
 }

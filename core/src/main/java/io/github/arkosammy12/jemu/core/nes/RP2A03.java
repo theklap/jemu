@@ -100,26 +100,45 @@ public class RP2A03<E extends NESEmulator> implements Bus {
         int combinedAddress = this.getCombinedRicohAddress(address);
         int activatedRegisterByte = -1;
 
+        // The Ricoh register that responds to a DMA read is determined by combining the upper bits of the
+        // CPU's current address bus value with the lower 5 bits of the DMA address. If this combined
+        // address falls in $4000-$401F, that register is activated.
         if (combinedAddress >= 0x4000 && combinedAddress <= 0x401F) {
             activatedRegisterByte = this.readByteRegister(combinedAddress);
         }
 
         int readByte;
         if (address >= 0x4000 && address <= 0x401F) {
+
+            // If DMA is trying to read from an internal Ricoh register, it can only do so if the
+            // register was activated via the combined Ricoh and CPU address.
+            // If no Ricoh register was activated, the final value is open bus.
             readByte = activatedRegisterByte;
         } else {
+
+            // Otherwise, the DMA reads from the external bus as normal
             readByte = this.readByteRicohCore(address);
             if (activatedRegisterByte >= 0) {
                 if ((combinedAddress == JOY1_ADDR || combinedAddress == JOY2_ADDR) && readByte >= 0) {
-                    readByte = (activatedRegisterByte & 0x1F) | (readByte & 0xE0);
+
+                    // Controller ports only drive bits 0-4; bits 5-7 are open bus. The final value
+                    // merges the open bus bits from the external read with the controller bits.
+                    readByte = (readByte & 0xE0) | (activatedRegisterByte & 0x1F);
                 } else {
+                    // Otherwise, we ignore the value on the external bus and use the internal read from the activated Ricoh register
                     readByte = activatedRegisterByte;
                 }
             }
         }
 
         if (readByte >= 0) {
+            // Update the internal data bus if the final value is non-open bus
             this.internalDataBus = readByte & 0xFF;
+            if (combinedAddress != SND_CHN_ADDR) {
+                // The internal and external data buses are connected, so bus conflicts are visible on both,
+                // except for $4015 reads, which only update the internal bus.
+                this.emulator.getCpuBus().setExternalDataBus(this.internalDataBus);
+            }
         }
 
         return this.internalDataBus;
