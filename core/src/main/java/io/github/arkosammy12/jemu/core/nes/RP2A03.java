@@ -123,6 +123,9 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 
                     // Controller ports only drive bits 0-4; bits 5-7 are open bus. The final value
                     // merges the open bus bits from the external read with the controller bits.
+
+                    // TODO: This value is what the external bus sees. The CPU on the other hand sees the regular bus conflict
+                    // with the ANDing behavior of the driven bits
                     readByte = (readByte & 0xE0) | (activatedRegisterByte & 0x1F);
                 } else {
                     // Otherwise, we ignore the value on the external bus and use the internal read from the activated Ricoh register
