@@ -34,6 +34,7 @@ public class MBC3 extends GameBoyCartridge {
             case 0x04 -> new byte[32][0x4000];
             case 0x05 -> new byte[64][0x4000];
             case 0x06 -> new byte[128][0x4000];
+            case 0x07 -> new byte[256][0x4000];
             default -> throw new EmulatorException("Incompatible ROM size header $%02X for MBC3 GameBoy cartridge type!".formatted(this.romSizeHeader));
         };
 
@@ -43,6 +44,7 @@ public class MBC3 extends GameBoyCartridge {
                 case 0x01 -> new byte[1][0x800];
                 case 0x02 -> new byte[1][0x2000];
                 case 0x03 -> new byte[4][0x2000];
+                case 0x05 -> new byte[8][0x2000];
                 default -> throw new EmulatorException("Incompatible RAM size header $%02X for MBC3 GameBoy cartridge type!".formatted(this.ramSizeHeader));
             };
         } else {
@@ -110,7 +112,7 @@ public class MBC3 extends GameBoyCartridge {
         if (address >= 0x0000 && address <= 0x1FFF) {
             this.ramEnable = value & 0xFF;
         } else if (address >= 0x2000 && address <= 0x3FFF) {
-            this.romBankNumber = value & 0x7F;
+            this.romBankNumber = value & 0xFF;
             if (this.romBankNumber == 0) {
                 this.romBankNumber = 1;
             }
