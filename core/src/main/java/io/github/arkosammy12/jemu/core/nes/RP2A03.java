@@ -54,6 +54,9 @@ public class RP2A03<E extends NESEmulator> implements Bus {
     private boolean dmcDmaHaltOnly;
 
     private int internalDataBus;
+	
+	private int joyOutputEnableAddress = -1;
+    private int joyOutputEnableValue;
 
     public RP2A03(E emulator, int apuSampleBufferSize) {
         this.emulator = emulator;
@@ -86,17 +89,38 @@ public class RP2A03<E extends NESEmulator> implements Bus {
                 this.internalDataBus = readByte & 0xFF;
             }
         }
+
         return this.internalDataBus;
     }
-
+	
     @Override
     public void writeByte(int address, int value) {
+        this.releaseJoy1OutputEnable();
         this.internalDataBus = value;
         this.emulator.getCpuBus().writeByte(address, value);
     }
 
     private int readByteRicohCore(int address) {
         return address == SND_CHN_ADDR ? this.readByteRegister(address) : this.emulator.getCpuBus().readByte(address);
+    }
+
+	private void releaseJoy1OutputEnable() {
+        this.joyOutputEnableAddress = -1;
+    }
+
+    private int readJoyWithOutputEnable(int address) {
+        address &= 0xFFFF;
+
+        if (this.joyOutputEnableAddress != address) {
+            this.joyOutputEnableAddress = address;
+            this.joyOutputEnableValue = switch (address) {
+                case JOY1_ADDR -> this.controller.readJoy1();
+                case JOY2_ADDR -> this.controller.readJoy2();
+                default -> -1;
+            };
+        }
+
+        return (this.joyOutputEnableValue & ~0xE0) | (this.internalDataBus & 0xE0);
     }
 
     private int readByteDMA(int address) {
@@ -117,10 +141,16 @@ public class RP2A03<E extends NESEmulator> implements Bus {
             // register was activated via the combined Ricoh and CPU address.
             // If no Ricoh register was activated, the final value is open bus.
             readByte = activatedRegisterByte;
-        } else {
+		} else {
 
             // Otherwise, the DMA reads from the external bus as normal
             readByte = this.readByteRicohCore(address);
+
+            if ((combinedAddress == JOY1_ADDR || combinedAddress == JOY2_ADDR) && activatedRegisterByte >= 0) {
+                this.joyOutputEnableAddress = combinedAddress;
+                this.joyOutputEnableValue = activatedRegisterByte;
+            }
+
             if (activatedRegisterByte >= 0) {
                 if ((combinedAddress == JOY1_ADDR || combinedAddress == JOY2_ADDR) && readByte >= 0) {
 
@@ -151,24 +181,30 @@ public class RP2A03<E extends NESEmulator> implements Bus {
     }
 
     public int readByteRegister(int address) {
+        address &= 0xFFFF;
+
         if ((address >= SQ1_VOL_ADDR && address <= TRI_LINEAR_ADDR) || (address >= TRI_LO_ADDR && address <= NOISE_VOL_ADDR) || (address >= NOISE_LO_ADDR && address <= DMC_LEN_ADDR) || address == SND_CHN_ADDR) {
+            this.releaseJoy1OutputEnable();
+
             int ret = this.apu.readByte(address);
             if (address == SND_CHN_ADDR) {
                 ret = (ret & ~0b00100000) | (this.internalDataBus & 0b00100000);
             }
             return ret;
         } else if (address == OAMDMA_ADDR) {
+            this.releaseJoy1OutputEnable();
             return -1;
-        } else if (address == JOY1_ADDR) {
-            return (this.controller.readJoy1() & ~0xE0) | (this.internalDataBus & 0xE0);
-        } else if (address == JOY2_ADDR) {
-            return (this.controller.readJoy2() & ~0xE0) | (this.internalDataBus & 0xE0);
+        } else if (address == JOY1_ADDR || address == JOY2_ADDR) {
+            return this.readJoyWithOutputEnable(address);
         } else {
+            this.releaseJoy1OutputEnable();
             return -1;
         }
     }
 
     public void writeByteRegister(int address, int value) {
+		this.releaseJoy1OutputEnable();
+
         if ((address >= SQ1_VOL_ADDR && address <= TRI_LINEAR_ADDR) || (address >= TRI_LO_ADDR && address <= NOISE_VOL_ADDR) || (address >= NOISE_LO_ADDR && address <= DMC_LEN_ADDR) || address == SND_CHN_ADDR || address == JOY2_ADDR) {
             this.apu.writeByte(address, value);
         } else if (address == OAMDMA_ADDR) {
@@ -234,8 +270,6 @@ public class RP2A03<E extends NESEmulator> implements Bus {
         if (!isHalted || (this.oamDmaTransferredBytes >= 256 && this.dmcDmaStep == DmcDmaStep.NONE)) {
             return;
         }
-
-        // TODO: Proper bus isolation in the specific case (which I still don't yet understand) that makes the DMA units not update the data bus
 		switch (this.apuHalfCycleType) {
 			case GET -> {
 				switch (this.dmcDmaStep) {
@@ -256,7 +290,6 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 					case ALIGNMENT -> this.dmcDmaStep = DmcDmaStep.GET;
 					case GET -> {
 						if (this.dmcDmaType != NESAPU.DmcDmaType.EXPLICIT_ABORT_0) {
-							// TODO: DMC DM bus conflicts...
 							this.apu.writeDmcDma(this.readByteDMA(this.dmcDmaAddress));
 						}
 
@@ -264,6 +297,16 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 						this.dmcDmaRequestPending = false;
 						this.dmcDmaType = NESAPU.DmcDmaType.RELOAD;
 						this.dmcDmaStartStep = DmcDmaStep.DUMMY;
+
+						NESAPU.DmcDmaType pendingImplicitDmaType = this.apu.getPendingImplicitDmcDmaType();
+						if (pendingImplicitDmaType != null) {
+							int pendingImplicitDmaAddress = this.apu.getPendingImplicitDmcDmaAddress();
+							this.apu.clearPendingImplicitDmcDma();
+                            switch (pendingImplicitDmaType) {
+                                case IMPLICIT_UNEXPECTED_RELOAD -> this.triggerDmcDma(NESAPU.DmcDmaType.RELOAD, pendingImplicitDmaAddress);
+                                case IMPLICIT_ABORT -> this.triggerExplicitStopDmcDma(NESAPU.DmcDmaType.EXPLICIT_ABORT_MINUS_2_OR_3, pendingImplicitDmaAddress);
+                            }
+						}
 					}
 				}
 			}
@@ -347,22 +390,17 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 
     void triggerExplicitStopDmcDma(NESAPU.DmcDmaType dmcDmaType, int address) {
 
-		if (dmcDmaType != NESAPU.DmcDmaType.EXPLICIT_ABORT_0
-				&& dmcDmaType != NESAPU.DmcDmaType.EXPLICIT_ABORT_MINUS_1
-				&& dmcDmaType != NESAPU.DmcDmaType.EXPLICIT_ABORT_MINUS_2_OR_3) {
+		if (dmcDmaType != NESAPU.DmcDmaType.EXPLICIT_ABORT_0 && dmcDmaType != NESAPU.DmcDmaType.EXPLICIT_ABORT_MINUS_1 && dmcDmaType != NESAPU.DmcDmaType.EXPLICIT_ABORT_MINUS_2_OR_3) {
 			return;
 		}
 
 		// Explicit stop may replace a pending normal reload, but not an already-running
 		// non-DUMMY DMA phase.
 		if (this.dmcDmaStep != DmcDmaStep.NONE || this.dmcDmaHaltOnly) {
-			if ((dmcDmaType == NESAPU.DmcDmaType.EXPLICIT_ABORT_0
-					|| dmcDmaType == NESAPU.DmcDmaType.EXPLICIT_ABORT_MINUS_1)
-					&& this.dmcDmaStep == DmcDmaStep.DUMMY) {
+			if ((dmcDmaType == NESAPU.DmcDmaType.EXPLICIT_ABORT_0 || dmcDmaType == NESAPU.DmcDmaType.EXPLICIT_ABORT_MINUS_1) && this.dmcDmaStep == DmcDmaStep.DUMMY) {
 				this.dmcDmaType = dmcDmaType;
 				this.dmcDmaRequestPending = true;
 			}
-
 			return;
 		}
 
@@ -371,8 +409,8 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 		this.dmcDmaAddress = address & 0xFFFF;
 
 		this.dmcDmaStartStep = switch (dmcDmaType) {
-			case EXPLICIT_ABORT_0, EXPLICIT_ABORT_MINUS_1, LOAD, RELOAD -> DmcDmaStep.DUMMY;
-			case EXPLICIT_ABORT_MINUS_2_OR_3 -> DmcDmaStep.NONE;
+			case EXPLICIT_ABORT_0, EXPLICIT_ABORT_MINUS_1, LOAD, RELOAD, IMPLICIT_UNEXPECTED_RELOAD -> DmcDmaStep.DUMMY;
+			case EXPLICIT_ABORT_MINUS_2_OR_3, IMPLICIT_ABORT -> DmcDmaStep.NONE;
         };
 
 		this.scheduleDmcDmaHaltCountdown = switch (this.apuHalfCycleType) {
@@ -412,5 +450,4 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 		ALIGNMENT,
 		GET
 	}
-
 }

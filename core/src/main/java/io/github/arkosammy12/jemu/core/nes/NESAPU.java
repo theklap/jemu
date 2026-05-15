@@ -172,25 +172,21 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
         }
     }
 
-    private void signalHalfFrameClock() {
-        this.clockHalfFrameSignal.trigger(1, 0);
-    }
-
-    private void signalQuarterFrameClock() {
-        this.clockQuarterFrameSignal.trigger(1, 0);
-    }
-
-    private void trySetFrameCounterIRQFlag() {
-        this.frameInterruptFlag = !this.frameCounterInterruptInhibitFlag;
-    }
-
-    private void forceSetFrameCounterIRQFlag() {
-        this.frameInterruptFlag = true;
-    }
-
-    public void writeDmcDma(int value) {
+    void writeDmcDma(int value) {
         this.dmcChannel.writeDmcDma(value);
     }
+	
+	DmcDmaType getPendingImplicitDmcDmaType() {
+		return this.dmcChannel.pendingImplicitDmaType;
+	}
+
+	int getPendingImplicitDmcDmaAddress() {
+		return this.dmcChannel.pendingImplicitDmaAddress;
+	}
+
+	void clearPendingImplicitDmcDma() {
+		this.dmcChannel.pendingImplicitDmaType = null;
+	}
 
     public void cycleHalf() {
 
@@ -295,6 +291,22 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
                 }
             }
         }
+    }
+
+    private void signalHalfFrameClock() {
+        this.clockHalfFrameSignal.trigger(1, 0);
+    }
+
+    private void signalQuarterFrameClock() {
+        this.clockQuarterFrameSignal.trigger(1, 0);
+    }
+
+    private void trySetFrameCounterIRQFlag() {
+        this.frameInterruptFlag = !this.frameCounterInterruptInhibitFlag;
+    }
+
+    private void forceSetFrameCounterIRQFlag() {
+        this.frameInterruptFlag = true;
     }
 
     private void clockQuarterFrame() {
@@ -737,30 +749,35 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
         private int bitsRemainingCounter;
         private int currentAddress;
         private int bytesRemainingCounter;
+		private DmcDmaType pendingImplicitDmaType;
+		private int pendingImplicitDmaAddress;
 
         protected DMCChannel() {
             this.ratePeriodLut = NTSC_RATE_PERIOD_LUT;
         }
 
         @Override
-        protected void setEnabled(boolean value) {
-            boolean wasEnabled = this.isEnabled();
+			protected void setEnabled(boolean value) {
+				boolean wasEnabled = this.isEnabled();
 
-            super.setEnabled(value);
+				super.setEnabled(value);
 
-            if (this.isEnabled()) {
-                if (this.bytesRemainingCounter <= 0) {
-                    this.resetSample();
-                }
-                this.checkStartDmcDma(DmcDmaType.LOAD);
-            } else {
-                if (wasEnabled) {
-                    this.checkExplicitStopDmcDma();
-                }
+				if (this.isEnabled()) {
+					this.checkImplicitStopDmcDma();
 
-                this.bytesRemainingCounter = 0;
-            }
-        }
+					if (this.bytesRemainingCounter <= 0) {
+						this.resetSample();
+					}
+
+					this.checkStartDmcDma(DmcDmaType.LOAD);
+				} else {
+					if (wasEnabled) {
+						this.checkExplicitStopDmcDma();
+					}
+
+					this.bytesRemainingCounter = 0;
+				}
+			}
 
         private void resetSample() {
             this.currentAddress = this.getSampleAddress();
@@ -889,6 +906,25 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
             }
         }
 
+        private void checkImplicitStopDmcDma() {
+            this.pendingImplicitDmaType = null;
+
+            if (!this.sampleBufferEmpty || this.bytesRemainingCounter > 0 || this.getSampleLength() != 1) {
+                return;
+            }
+
+            int ratePeriod = this.ratePeriodLut[this.getRateIndex()];
+            int cyclesUntilBufferEmpty = this.timer + ((this.bitsRemainingCounter - 1) * ratePeriod);
+
+            if (cyclesUntilBufferEmpty == 4 || cyclesUntilBufferEmpty == 5) {
+                this.pendingImplicitDmaType = DmcDmaType.IMPLICIT_UNEXPECTED_RELOAD;
+                this.pendingImplicitDmaAddress = this.getSampleAddress();
+            } else if (cyclesUntilBufferEmpty == 6 || cyclesUntilBufferEmpty == 7) {
+                this.pendingImplicitDmaType = this.getLoopFlag() ? DmcDmaType.IMPLICIT_UNEXPECTED_RELOAD : DmcDmaType.IMPLICIT_ABORT;
+                this.pendingImplicitDmaAddress = this.getSampleAddress();
+            }
+        }
+		
         protected void writeDmcDma(int value) {
             this.sampleBuffer = value & 0xFF;
             this.sampleBufferEmpty = false;
@@ -906,7 +942,6 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
             }
         }
 
-
         @Override
         protected int getDigitalOutput() {
             return this.outputLevel;
@@ -915,11 +950,13 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
     }
 
     public enum DmcDmaType {
-        LOAD,
-        RELOAD,
-        EXPLICIT_ABORT_0,
-        EXPLICIT_ABORT_MINUS_1,
-        EXPLICIT_ABORT_MINUS_2_OR_3
-    }
+		LOAD,
+		RELOAD,
+		EXPLICIT_ABORT_0,
+		EXPLICIT_ABORT_MINUS_1,
+		EXPLICIT_ABORT_MINUS_2_OR_3,
+		IMPLICIT_UNEXPECTED_RELOAD,
+		IMPLICIT_ABORT
+	}
 
 }
