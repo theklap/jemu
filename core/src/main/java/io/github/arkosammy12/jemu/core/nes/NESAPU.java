@@ -744,13 +744,20 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
 
         @Override
         protected void setEnabled(boolean value) {
+            boolean wasEnabled = this.isEnabled();
+
             super.setEnabled(value);
+
             if (this.isEnabled()) {
                 if (this.bytesRemainingCounter <= 0) {
                     this.resetSample();
                 }
                 this.checkStartDmcDma(DmcDmaType.LOAD);
             } else {
+                if (wasEnabled) {
+                    this.checkExplicitStopDmcDma();
+                }
+
                 this.bytesRemainingCounter = 0;
             }
         }
@@ -854,6 +861,34 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
             }
         }
 
+        private void checkExplicitStopDmcDma() {
+            if (this.bytesRemainingCounter <= 0) {
+                return;
+            }
+
+            int ratePeriod = this.ratePeriodLut[this.getRateIndex()];
+            int cyclesUntilBufferEmpty = this.timer + ((this.bitsRemainingCounter - 1) * ratePeriod);
+            int reloadWindow = ratePeriod * 8;
+
+            DmcDmaType explicitAbortType = null;
+
+            if (this.sampleBufferEmpty) {
+                if (cyclesUntilBufferEmpty == reloadWindow - 2) {
+                    explicitAbortType = DmcDmaType.EXPLICIT_ABORT_0;
+                } else if (cyclesUntilBufferEmpty == reloadWindow - 1) {
+                    explicitAbortType = DmcDmaType.EXPLICIT_ABORT_MINUS_1;
+                } else if (cyclesUntilBufferEmpty == reloadWindow) {
+                    explicitAbortType = DmcDmaType.EXPLICIT_ABORT_MINUS_2_OR_3;
+                }
+            } else if (cyclesUntilBufferEmpty == 1) {
+                explicitAbortType = DmcDmaType.EXPLICIT_ABORT_MINUS_2_OR_3;
+            }
+
+            if (explicitAbortType != null) {
+                emulator.getRicohCore().triggerExplicitStopDmcDma(explicitAbortType, this.currentAddress);
+            }
+        }
+
         protected void writeDmcDma(int value) {
             this.sampleBuffer = value & 0xFF;
             this.sampleBufferEmpty = false;
@@ -881,7 +916,10 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
 
     public enum DmcDmaType {
         LOAD,
-        RELOAD
+        RELOAD,
+        EXPLICIT_ABORT_0,
+        EXPLICIT_ABORT_MINUS_1,
+        EXPLICIT_ABORT_MINUS_2_OR_3
     }
 
 }
