@@ -77,8 +77,7 @@ public class AXROMCartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     @Override
     protected int mapNametableAddress(int address) {
-        // Single-screen mirroring
-        return (address & 0x3FF) | ((this.bankSelect & (1 << 4)) != 0 ? 0x400 : 0);
+        return this.mapNametableAddress(address, (this.bankSelect & (1 << 4)) != 0 ? NametableArrangement.SINGLE_SCREEN_UPPER_BANK : NametableArrangement.SINGLE_SCREEN_LOWER_BANK);
     }
 
     @Override

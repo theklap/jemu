@@ -1,6 +1,7 @@
 package io.github.arkosammy12.jemu.core.nes.ines;
 
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
+import io.github.arkosammy12.jemu.core.nes.NESCartridge;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
@@ -16,7 +17,7 @@ public class INESFile {
     public static final int KB_256 = KB_128 * 2;
     public static final int KB_512 = KB_256 * 2;
 
-    private final NametableArrangement nametableArrangement;
+    private final NESCartridge.NametableArrangement nametableArrangement;
     private final boolean hasBattery;
     private final boolean hasAlternativeNametableLayout;
     private final byte[] programRomData;
@@ -36,7 +37,7 @@ public class INESFile {
         this.characterRamSizeBytes = this.getCharacterRamSize(file);
 
         int flags6 = (int) file[6] & 0xFF;
-        this.nametableArrangement = (flags6 & 1) != 0 ? NametableArrangement.HORIZONTAL : NametableArrangement.VERTICAL;
+        this.nametableArrangement = (flags6 & 1) != 0 ? NESCartridge.NametableArrangement.HORIZONTAL : NESCartridge.NametableArrangement.VERTICAL;
         this.hasBattery = (flags6 & (1 << 1)) != 0;
         this.hasAlternativeNametableLayout = (flags6 & (1 << 3)) != 0;
 
@@ -125,7 +126,7 @@ public class INESFile {
         return this.characterRamSizeBytes;
     }
 
-    public NametableArrangement getNametableArrangement() {
+    public NESCartridge.NametableArrangement getNametableArrangement() {
         return this.nametableArrangement;
     }
 
@@ -177,11 +178,6 @@ public class INESFile {
         } catch (ArrayIndexOutOfBoundsException e) {
             throw new EmulatorException("Error initializing from iNES file!", e);
         }
-    }
-
-    public enum NametableArrangement {
-        HORIZONTAL,
-        VERTICAL
     }
 
 }

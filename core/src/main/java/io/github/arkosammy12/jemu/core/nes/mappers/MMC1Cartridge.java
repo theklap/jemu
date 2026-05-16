@@ -94,19 +94,13 @@ public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     @Override
     protected int mapNametableAddress(int address) {
-        return switch (this.getNametableArrangement()) {
-            case 0 -> (address & 0x3FF);
-            case 1 -> 0x400 | (address & 0x3FF);
-            case 2 -> {
-                int vRamAddr = (address - CIRAM_START) & 0x0FFF;
-                yield (vRamAddr & (1 << 10)) | (vRamAddr & 0x03FF);
-            }
-            case 3 -> {
-                int vRamAddr = (address - CIRAM_START) & 0x0FFF;
-                yield ((vRamAddr & (1 << 11)) >>> 1) | (vRamAddr & 0x03FF);
-            }
+        return this.mapNametableAddress(address, switch (this.getNametableArrangement()) {
+            case 0 -> NametableArrangement.SINGLE_SCREEN_LOWER_BANK;
+            case 1 -> NametableArrangement.SINGLE_SCREEN_UPPER_BANK;
+            case 2 -> NametableArrangement.HORIZONTAL;
+            case 3 -> NametableArrangement.VERTICAL;
             default -> throw new EmulatorException("NES MMC1 nametable arrangement bits not in [0, 3]!");
-        };
+        });
     }
 
     @Override

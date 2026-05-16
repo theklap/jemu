@@ -5,13 +5,11 @@ import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import io.github.arkosammy12.jemu.core.nes.ines.INESFile;
 import io.github.arkosammy12.jemu.core.nes.mappers.*;
 
-import static io.github.arkosammy12.jemu.core.nes.RP2C02.CIRAM_START;
-
 public abstract class NESCartridge<E extends NESEmulator> implements Bus {
 
     protected final E emulator;
     protected final INESFile iNESFile;
-    private final INESFile.NametableArrangement iNESFileNametableArrangement;
+    private final NametableArrangement iNESFileNametableArrangement;
 
     private final byte[] vRam = new byte[0x800];
 
@@ -50,10 +48,16 @@ public abstract class NESCartridge<E extends NESEmulator> implements Bus {
     }
 
     protected int mapNametableAddress(int address) {
-        int vRamAddr = (address - CIRAM_START) & 0x0FFF;
-        return switch (this.iNESFileNametableArrangement) {
-            case HORIZONTAL -> (vRamAddr & (1 << 10)) | (vRamAddr & 0x03FF);
-            case VERTICAL -> ((vRamAddr & (1 << 11)) >>> 1) | (vRamAddr & 0x03FF);
+        return this.mapNametableAddress(address, this.iNESFileNametableArrangement);
+    }
+
+    protected int mapNametableAddress(int address, NametableArrangement nametableArrangement) {
+        return switch (nametableArrangement) {
+            case HORIZONTAL -> (address & (1 << 10)) | (address & 0x3FF);
+            case VERTICAL -> ((address & (1 << 11)) >>> 1) | (address & 0x3FF);
+            case SINGLE_SCREEN_LOWER_BANK -> address & 0x3FF;
+            case SINGLE_SCREEN_UPPER_BANK -> 0x400 | (address & 0x3FF);
+            case FOUR_SCREEN -> address & 0xFFF;
         };
     }
 
@@ -63,6 +67,14 @@ public abstract class NESCartridge<E extends NESEmulator> implements Bus {
 
     public boolean getIRQSignal() {
         return false;
+    }
+
+    public enum NametableArrangement {
+        HORIZONTAL,
+        VERTICAL,
+        SINGLE_SCREEN_LOWER_BANK,
+        SINGLE_SCREEN_UPPER_BANK,
+        FOUR_SCREEN
     }
 
 }
