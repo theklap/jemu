@@ -37,7 +37,7 @@ public class MMC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         super(emulator, iNESFile);
 
         int programRamSize = Math.clamp((long) iNESFile.getProgramRamSize(), 0, KB_8);
-        this.programRam = new byte[programRamSize];
+        this.programRam = programRamSize > 0 ? new byte[programRamSize] : null;
 
         byte[] programRomData = iNESFile.getProgramRom();
         this.programRom = Arrays.copyOf(programRomData, programRomData.length);
@@ -93,7 +93,7 @@ public class MMC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
     @Override
     public int readByte(int address) {
         if (address >= 0x6000 && address <= 0x7FFF) {
-            if (this.programRam.length > 0) {
+            if (this.programRam != null) {
                 return (int) this.programRam[(address - 0x6000) % this.programRam.length] & 0xFF;
             } else {
                 return -1;
@@ -108,7 +108,7 @@ public class MMC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
     @Override
     public void writeByte(int address, int value) {
         if (address >= 0x6000 && address <= 0x7FFF) {
-            if (this.programRam.length > 0) {
+            if (this.programRam != null) {
                 this.programRam[(address - 0x6000) % this.programRam.length] = (byte) value;
             }
         } else {

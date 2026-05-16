@@ -43,7 +43,7 @@ public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
             programRamSize += nes20File.getNonVolatileProgramRamSizeBytes();
         }
 
-        this.programRam = new byte[programRamSize];
+        this.programRam = programRamSize > 0 ? new byte[programRamSize] : null;
 
         Optional<byte[]> characterRomOptional = iNESFile.getCharacterRom();
         if (characterRomOptional.isEmpty()) {
@@ -106,7 +106,7 @@ public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
     @Override
     public int readByte(int address) {
         if (address >= 0x6000 && address <= 0x7FFF) {
-            if (this.programRam != null && this.programRam.length > 0) {
+            if (this.programRam != null) {
                 return (int) this.programRam[this.mapPrgRamAddress(address) % this.programRam.length] & 0xFF;
             } else {
                 return -1;
@@ -121,7 +121,7 @@ public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
     @Override
     public void writeByte(int address, int value) {
         if (address >= 0x6000 && address <= 0x7FFF) {
-            if (this.programRam != null && this.programRam.length > 0 && this.isProgramRamEnabled()) {
+            if (this.programRam != null && this.isProgramRamEnabled()) {
                 this.programRam[this.mapPrgRamAddress(address) % this.programRam.length] = (byte) value;
             }
         } else if (address >= 0x8000 && address <= 0xFFFF) {
