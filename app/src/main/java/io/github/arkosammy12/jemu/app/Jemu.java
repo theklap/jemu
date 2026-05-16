@@ -146,21 +146,26 @@ public final class Jemu {
 
             } catch (EmulatorException e) {
                 Logger.error("Emulation error: {}", e);
-                this.mainWindow.showCoreError(e);
-                if (this.currentSystem != null) {
-                    try {
-                        this.currentSystem.close();
-                    } catch (Exception _) {}
-                    this.mainWindow.getSystemViewport().setSystemDisplayPanel(null);
-                    this.currentSystem = null;
-                }
-                this.mainWindow.submitEmulatorCommand(new StopEmulatorCommand());
+                this.onExceptionThrownInEmulatorLoop(e);
             } catch (InterruptedException _) {
 
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                Logger.error("Unexpected error while initializing or running emulator: {}", e);
+                this.onExceptionThrownInEmulatorLoop(new EmulatorException("Unexpected error while initializing or running emulator!", e));
             }
         }
+    }
+
+    private void onExceptionThrownInEmulatorLoop(Exception e) {
+        this.mainWindow.showCoreError(e);
+        if (this.currentSystem != null) {
+            try {
+                this.currentSystem.close();
+            } catch (Exception _) {}
+            this.mainWindow.getSystemViewport().setSystemDisplayPanel(null);
+            this.currentSystem = null;
+        }
+        this.mainWindow.submitEmulatorCommand(new StopEmulatorCommand());
     }
 
     private void updateState(boolean take) throws Exception {

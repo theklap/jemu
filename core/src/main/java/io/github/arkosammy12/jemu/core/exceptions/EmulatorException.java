@@ -7,7 +7,7 @@ public class EmulatorException extends RuntimeException {
     }
 
     public EmulatorException(String message, Throwable cause) {
-        super(message + ". \n" + cause);
+        super(message + "\n" + cause);
     }
 
     public EmulatorException(Throwable cause) {
