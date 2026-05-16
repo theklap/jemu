@@ -16,7 +16,7 @@ public abstract class NESCartridge<E extends NESEmulator> implements Bus {
     public NESCartridge(E emulator, INESFile iNESFile) {
         this.emulator = emulator;
         this.iNESFile = iNESFile;
-        this.iNESFileNametableArrangement = this.iNESFile.getNametableArrangement();
+        this.iNESFileNametableArrangement = this.iNESFile.getNametableArrangement() ? NESCartridge.NametableArrangement.HORIZONTAL : NESCartridge.NametableArrangement.VERTICAL;
     }
 
     public static <E extends NESEmulator> NESCartridge<E> getCartridge(E emulator, INESFile iNESFile) {
@@ -27,6 +27,7 @@ public abstract class NESCartridge<E extends NESEmulator> implements Bus {
             case 2 -> new UXROMCartridge<>(emulator, iNESFile);
             case 3 -> new CNROMCartridge<>(emulator, iNESFile);
             case 7 -> new AXROMCartridge<>(emulator, iNESFile);
+            case 218 -> new INESMapper218<>(emulator, iNESFile);
             default -> throw new EmulatorException("Unimplemented iNES mapper number %d!".formatted(mapperNumber));
         };
     }
