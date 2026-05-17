@@ -1,32 +1,60 @@
-name: Dev Build
+name: Build Native Image
 
 on:
-  push:
-    branches:
-      - dev
-
-permissions:
-  contents: write
+  workflow_dispatch:
+  workflow_call:
 
 jobs:
   build:
-    uses: ./.github/workflows/build-native-image.yml
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: windows-latest
+            name: windows
+          - os: macos-latest
+            name: macos
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
+      - name: Checkout code
+        uses: actions/checkout@v6.0.1
 
-      - name: Create dev release
-        uses: softprops/action-gh-release@v2
+      - name: Set up JDK
+        uses: actions/setup-java@v5.1.0
         with:
-          tag_name: dev-${{ github.sha }}
-          name: Dev Build ${{ github.sha }}
-          prerelease: true
-          generate_release_notes: true
-          files: artifacts/**/*
+          distribution: temurin
+          java-version: 25
+
+      - name: Verify Java version
+        run: java -version
+
+      - name: Set up Maven cache
+        uses: actions/cache@v5.0.0
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Set lowercase arch
+        shell: bash
+        run: echo "ARCH=$(echo ${{ runner.arch }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Build and package with Maven
+        run: |
+          mvn -B clean package
+          mvn -B org.panteleyev:jpackage-maven-plugin:1.7.4:jpackage -pl app
+
+      - name: Zip artifact
+        shell: bash
+        run: |
+          cd target/dist
+          zip -r ../../jemu-${{ matrix.name }}-${{ env.ARCH }}.zip .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5.0.0
+        with:
+          name: jemu-${{ matrix.name }}-${{ env.ARCH }}
+          path: jemu-${{ matrix.name }}-${{ env.ARCH }}.zip
