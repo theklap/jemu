@@ -351,7 +351,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 if ((this.primaryOamAddress & 3) == 2) {
                     ret &= ~0b00011100;
                 }
-                if (this.isVisibleScanline() && ((this.dotNumber >= 1 && this.dotNumber <= 64) || (this.dotNumber >= 256 && this.dotNumber <= 320)) && this.isRenderingEnabled()) {
+                if (this.isVisibleScanline() && ((this.dotNumber >= OAM2_INIT_START && this.dotNumber <= OAM2_INIT_END) || (this.dotNumber >= SPRITE_EVAL_END && this.dotNumber <= SPRITE_FETCH_END)) && this.isRenderingEnabled()) {
                     ret = 0xFF;
                 }
                 this.setDataBus(ret);
@@ -370,7 +370,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 }
 
                 // TODO: If the $2007 access happens to coincide with a standard VRAM address increment (either horizontal or vertical), it will presumably not double-increment the relevant counter.
-                if (this.isRenderingEnabled() && (this.isVisibleScanline() || this.isPreRenderScanline())) {
+                if (this.isRenderScanline() && this.isRenderingEnabled()) {
                     this.incrementHorizontalPosition();
                     this.incrementVerticalPosition();
                 } else {
@@ -418,7 +418,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
             case PPUSTATUS_ADDR -> {}
             case OAMADDR_ADDR -> this.primaryOamAddress = value & 0xFF;
             case OAMDATA_ADDR -> {
-                if ((this.isVisibleScanline() || this.isPreRenderScanline()) && this.isRenderingEnabled()) {
+                if (this.isRenderScanline() && this.isRenderingEnabled()) {
                     this.primaryOamAddress = (this.primaryOamAddress + 4) & 0xFC;
                 } else {
                     this.primaryOAM[this.primaryOamAddress] = value & 0xFF;
@@ -452,7 +452,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 this.writeBytePPU(V, value);
 
                 // TODO: If the $2007 access happens to coincide with a standard VRAM address increment (either horizontal or vertical), it will presumably not double-increment the relevant counter.
-                if (this.isRenderingEnabled() && (this.isVisibleScanline() || this.isPreRenderScanline())) {
+                if (this.isRenderScanline() && this.isRenderingEnabled()) {
                     this.incrementHorizontalPosition();
                     this.incrementVerticalPosition();
                 } else {
@@ -554,14 +554,14 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 this.refreshSpriteShiftersSignal.tick();
 
                 if (this.isRenderScanline()) {
-                    if (this.dotNumber == 65 || this.dotNumber == 257 || (this.dotSkipped && this.dotNumber == 1) || (!this.dotSkipped && this.dotNumber == 0)) {
+                    if (this.dotNumber == SPRITE_EVAL_START || this.dotNumber == SPRITE_FETCH_START || (this.dotSkipped && this.dotNumber == 1) || (!this.dotSkipped && this.dotNumber == 0)) {
                         if (this.isRenderingEnabled()) {
                             this.secondaryOamAddress = 0;
                             this.spriteEvaluationSecondaryOamAddressOverflowed = false;
                         }
                     }
 
-                    if (this.dotNumber >= 257 && this.dotNumber <= 320) {
+                    if (this.dotNumber >= SPRITE_FETCH_START && this.dotNumber <= SPRITE_FETCH_END) {
                         this.spriteEvaluationStep = 0;
                         this.spriteEvaluationOamReadingCounter = 0;
                         this.spriteEvaluationOriginalPrimaryOamAddressOverflowed = false;
@@ -637,11 +637,11 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                         }
                     }
 
-                    if (this.dotNumber == 256) {
+                    if (this.dotNumber == SPRITE_EVAL_END) {
                         if (this.isRenderingEnabled()) {
                             this.incrementVerticalPosition();
                         }
-                    } else if (this.dotNumber == 257) {
+                    } else if (this.dotNumber == SPRITE_FETCH_START) {
                         if (this.isRenderingEnabled()) {
                             this.copyHorizontalPositionBitsToV();
                         }
@@ -667,7 +667,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                     }
                 }
 
-                if (this.dotNumber == 257) {
+                if (this.dotNumber == SPRITE_FETCH_START) {
                     this.spriteShifterInitIndex = 0;
                 }
 
