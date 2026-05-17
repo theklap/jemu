@@ -42,6 +42,9 @@ jobs:
           mvn -B clean package
           mvn -B org.panteleyev:jpackage-maven-plugin:1.7.4:jpackage -pl app
 
+      - name: Set lowercase arch
+        run: echo "ARCH=$(echo ${{ runner.arch }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Upload artifact
         uses: actions/upload-artifact@v5.0.0
         with:
