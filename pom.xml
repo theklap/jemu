@@ -10,6 +10,7 @@
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.name>jemu</project.name>
+        <jpackage.version>${project.version}</jpackage.version>
     </properties>
 
     <groupId>io.github.arkosammy12</groupId>

@@ -43,6 +43,20 @@
         </dependency>
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>macos</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                </os>
+            </activation>
+            <properties>
+                <jpackage.version>1-${project.version}</jpackage.version>
+            </properties>
+        </profile>
+    </profiles>
+
     <build>
         <resources>
             <resource>
@@ -80,7 +94,7 @@
                 <version>1.7.4</version>
                 <configuration>
                     <name>jemu</name>
-                    <appVersion>${project.version}</appVersion>
+                    <appVersion>${jpackage.version}</appVersion>
                     <type>APP_IMAGE</type>
                     <mainJar>${project.parent.build.finalName}.jar</mainJar>
                     <input>${project.parent.build.directory}</input>
