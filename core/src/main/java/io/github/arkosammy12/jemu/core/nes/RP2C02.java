@@ -279,12 +279,9 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         this.visibleScanlines = NTSC_VISIBLE_SCANLINES;
         this.vblScanline = NTSC_VBL_SCANLINE;
         this.doOddFrameDotSkipping = true;
-
         this.dotsPerFrame = this.scanlinesPerFrame * DOTS_PER_SCANLINE;
         this.video = new int[WIDTH][this.visibleScanlines];
-        for (int[] ints : this.video) {
-            Arrays.fill(ints, 0xFF000000);
-        }
+
         for (int i = 0; i < 16; i++) {
             this.backgroundShiftRegister.offer(0b00);
         }
@@ -331,8 +328,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         if (!(address >= PPU_START && address <= PPU_END)) {
             return -1;
         }
-        address = 0x2000 + (address & 7);
 
+        address = 0x2000 | (address & 7);
         return switch (address) {
             case PPUCTRL_ADDR, PPUMASK_ADDR, OAMADDR_ADDR, PPUADDR_ADDR, PPUSCROLL_ADDR -> this.dataBus;
             case PPUSTATUS_ADDR -> {
@@ -389,7 +386,6 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         if (!(address >= PPU_START && address <= PPU_END)) {
             return;
         }
-        address = 0x2000 + (address & 7);
 
         this.setDataBus(value);
 
@@ -400,6 +396,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
             return;
         }
          */
+        address = 0x2000 + (address & 7);
         switch (address) {
             case PPUCTRL_ADDR -> {
                 this.ppuControl = value & 0xFC;
@@ -1202,7 +1199,9 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
         private final LinkedList<Integer> shiftRegister = new LinkedList<>();
         private int xPosition = 0xFF;
-        private int attributes = 0xFF;
+        private int paletteNumber;
+        private boolean priority;
+
         private int xPositionCounter = 0xFF;
 
         private SpriteShifter() {
@@ -1213,27 +1212,22 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
         private void initialize(int patternBitsLow, int patternBitsHigh, int xPosition, int attributes) {
             this.xPosition = xPosition & 0xFF;
-            this.attributes = attributes & 0xFF;
+            this.paletteNumber = attributes & 0b11;
+            this.priority = (attributes & (1 << 5)) != 0;
 
-            boolean xFlip = this.getSpriteHorizontalFlip();
-
+            boolean xFlip = (attributes & (1 << 6)) != 0;
             for (int i = 0; i < 8; i++) {
                 int bit = xFlip ? i : 7 - i;
                 int hi = (patternBitsHigh >>> bit) & 1;
                 int lo = (patternBitsLow >>> bit) & 1;
                 this.shiftRegister.set(i, (hi << 1) | lo);
             }
-
         }
 
         private void decrementXPositionCounter() {
             if (this.xPositionCounter > 0) {
                 this.xPositionCounter--;
             }
-        }
-
-        private int getXPosition() {
-            return this.xPosition;
         }
 
         private int getXPositionCounter() {
@@ -1245,25 +1239,18 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         }
 
         private int getPaletteNumber() {
-            return this.attributes & 0b11;
+            return this.paletteNumber;
         }
 
         private boolean getPriority() {
-            return (this.attributes & (1 << 5)) != 0;
+            return this.priority;
         }
 
+        @SuppressWarnings("ConstantConditions")
         private int shiftOutPixel() {
             int ret = this.shiftRegister.poll();
             this.shiftRegister.offer(0b00);
             return ret;
-        }
-
-        private boolean getSpriteHorizontalFlip() {
-            return getSpriteHorizontalFlipFromAttributes(this.attributes);
-        }
-
-        private static boolean getSpriteHorizontalFlipFromAttributes(int attributes) {
-            return (attributes & (1 << 6)) != 0;
         }
 
     }
