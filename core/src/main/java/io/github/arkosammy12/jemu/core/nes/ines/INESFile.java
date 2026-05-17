@@ -31,6 +31,7 @@ public class INESFile {
 
     public INESFile(byte[] file) {
 
+        // TODO: Extract whether the ROM is for a PAL console
         this.mapperNumber = this.getMapperNumber(file);
         this.submapperNumber = this.getSubmapperNumber(file);
         this.programRamSizeBytes = this.getProgramRamSize(file);
