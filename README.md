@@ -7,20 +7,22 @@ Multi-system emulator written in Java.
 
 ## Supported systems
 
-| System                        | CLI identifier  | Status              |
-|-------------------------------|-----------------|---------------------|
-| COSMAC VIP                    | `cosmac-vip`    | ✅ Supported         |
-| RCA Studio II                 | —               | 🗓 Planned          |
-| VIP CHIP-8                    | `vip-chip8`     | ✅ Supported         |
-| VIP CHIP-8X                   | `vip-chip8x`    | ✅ Supported         |
-| Game Boy (DMG)                | `gameboy`       | ✅ Supported         |
-| Game Boy Color (CGB)          | `gameboy-color` | ✅ Supported         |
-| Nintendo Entertainment System | `nes`           | 🚧 Work in progress |
-| Commodore 64                  | —               | 🗓 Planned          |
-| Atari 2600                    | —               | 🗓 Planned          |
-| Sega Master System            | —               | 🗓 Planned          |
-| ZX Spectrum                   | —               | 🗓 Planned          |
-| Sega Genesis                  | —               | 🗓 Planned          |
+| System                              | CLI identifier  | Status              |
+|-------------------------------------|-----------------|---------------------|
+| COSMAC VIP                          | `cosmac-vip`    | ✅ Supported         |
+| RCA Studio II                       | —               | 🗓 Planned          |
+| VIP CHIP-8                          | `vip-chip8`     | ✅ Supported         |
+| VIP CHIP-8X                         | `vip-chip8x`    | ✅ Supported         |
+| Game Boy (DMG)                      | `gameboy`       | ✅ Supported         |
+| Game Boy Color (CGB)                | `gameboy-color` | ✅ Supported         |
+| Nintendo Entertainment System       | `nes`           | 🚧 Work in progress |
+| Commodore 64                        | —               | 🗓 Planned          |
+| Apple II                            | —               | 🗓 Planned          |
+| Atari 2600                          | —               | 🗓 Planned          |
+| Sega Master System                  | —               | 🗓 Planned          |
+| ZX Spectrum                         | —               | 🗓 Planned          |
+| Sega Genesis                        | —               | 🗓 Planned          |
+| Super Nintendo Entertainmnet System | —               | 🗓 Planned          |
 
 ## Keybindings
 
