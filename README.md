@@ -22,7 +22,7 @@ Multi-system emulator written in Java.
 | Sega Master System                  | —               | 🗓 Planned          |
 | ZX Spectrum                         | —               | 🗓 Planned          |
 | Sega Genesis                        | —               | 🗓 Planned          |
-| Super Nintendo Entertainmnet System | —               | 🗓 Planned          |
+| Super Nintendo Entertainment System | —               | 🗓 Planned          |
 
 ## Keybindings
 
