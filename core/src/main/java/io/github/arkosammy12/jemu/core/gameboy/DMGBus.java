@@ -183,7 +183,7 @@ public class DMGBus<E extends GameBoyEmulator> implements Bus {
                 case JOYP_ADDR -> this.emulator.getSystemController().writeJoyP(value);
                 case SB_ADDR, SC_ADDR -> this.emulator.getSerialController().writeByte(address, value);
                 case DIV_ADDR, TIMA_ADDR, TMA_ADDR, TAC_ADDR -> this.emulator.getTimerController().writeByte(address, value);
-                case IF_ADDR -> this.interruptFlag = value & 0xFF;
+                case IF_ADDR -> this.interruptFlag = value & 0xFF; // TODO: If the CPU clears a bit on the same cycle that a component tries setting the bit, the bit says cleared!
                 case IE_ADDR -> this.interruptEnable = value & 0xFF;
                 default -> {
                     if ((address >= NR10_ADDR && address <= NR14_ADDR) || (address >= NR21_ADDR && address <= NR34_ADDR) || (address >= NR41_ADDR && address <= NR52_ADDR) || (address >= WAVERAM_START && address <= WAVERAM_END)) {
