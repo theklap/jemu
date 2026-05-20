@@ -372,6 +372,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                     this.incrementVerticalPosition();
                 } else {
                     this.setV(this.getV() + this.getVRAMAddressIncrement());
+                    this.emulator.getCartridge().observePPUAddress(this.getV() & 0x3FFF);
                 }
 
                 this.setDataBus(ret);
@@ -458,6 +459,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                     this.incrementVerticalPosition();
                 } else {
                     this.setV(V + this.getVRAMAddressIncrement());
+                    this.emulator.getCartridge().observePPUAddress(this.getV() & 0x3FFF);
                 }
             }
             default -> throw new EmulatorException("Invalid address $%04X for NES PPU!".formatted(address));
