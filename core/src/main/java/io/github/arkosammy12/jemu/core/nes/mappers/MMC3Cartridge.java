@@ -51,6 +51,7 @@ public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
     private final ActionSignal setIRQSignal;
 
     public MMC3Cartridge(E emulator, INESFile iNESFile) {
+        // TODO: Use submapper for IRQ behavior and MMC6
         super(emulator, iNESFile);
 
         byte[] programRomData = iNESFile.getProgramRom();
