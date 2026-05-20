@@ -51,6 +51,10 @@ public abstract class NESCartridge<E extends NESEmulator> implements Bus {
         return VRAMSize.KB_2;
     }
 
+    public void onPPUHalfDot() {
+
+    }
+
     public void observePPUAddress(int address) {
 
     }

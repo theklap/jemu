@@ -196,6 +196,10 @@ public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         } else {
             this.cyclesDown = 0;
         }
+    }
+
+    @Override
+    public void onPPUHalfDot() {
         this.setIRQSignal.tick();
     }
 
@@ -277,8 +281,7 @@ public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
                 }
 
                 if (this.irqCounter == 0 && this.irqEnabled) {
-                    this.setIRQSignal.trigger(1, 0);
-                    //this.irqSignal = true;
+                    this.setIRQSignal.trigger(4, 0);
                 }
             }
             this.previousPPUAddress = address & 0xFFFF;

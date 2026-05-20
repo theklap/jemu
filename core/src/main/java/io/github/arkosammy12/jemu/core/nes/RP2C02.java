@@ -543,6 +543,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         this.toggleRenderingSignal.tick();
         this.clearVblOnPpuStatusReadSignal.tick();
         this.setSprite0HItSignal.tick();
+        this.emulator.getCartridge().onPPUHalfDot();
 
         if (this.decayPpuDataBusCountdown > 0) {
             this.decayPpuDataBusCountdown--;
