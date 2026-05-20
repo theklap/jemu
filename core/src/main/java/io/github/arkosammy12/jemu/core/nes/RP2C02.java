@@ -1133,7 +1133,9 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         }
     }
 
-
+    // TODO: On the cartridge, add setPPUAddress() method, in order to correctly model the PPU address being primed, and then one dot later the read being performed.
+    // We temporarily model the 2 dot length of a PPU read by just peforming the read instantaneously on the first dot, but MMC5 will require us to properly model this
+    // as it cares about what is read vs just changes changes in the PPU address.
     private int readBytePPU(int address) {
         address &= 0x3FFF;
         int ret = this.emulator.getCartridge().readBytePPU(address);
@@ -1142,8 +1144,6 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         }
         return ret;
     }
-
-
 
     private void writeBytePPU(int address, int value) {
         address &= 0x3FFF;

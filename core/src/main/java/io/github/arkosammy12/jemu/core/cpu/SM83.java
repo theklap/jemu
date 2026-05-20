@@ -259,6 +259,7 @@ public class SM83<S extends SM83.SystemBus> implements Processor {
         return this.WZ & 0xFF;
     }
 
+    // TODO: Make T-cycle stepped
     public int cycle() {
         int flags = 0;
 

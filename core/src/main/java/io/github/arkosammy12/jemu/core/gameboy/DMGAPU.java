@@ -353,10 +353,10 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
 
     protected abstract class AudioChannel {
 
-        public int nrx1;
-        public int nrx2;
-        public int nrx3;
-        public int nrx4;
+        protected int nrx1;
+        protected int nrx2;
+        protected int nrx3;
+        protected int nrx4;
 
         public int lengthTimer;
 
@@ -466,11 +466,11 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
                 {1, 1, 1, 1, 1, 1, 0, 0}
         };
 
-        int waveDutyIndex;
+        protected int waveDutyIndex;
         protected int wavePeriodTimer;
 
         private int envelopePeriodTimer;
-        int envelopeCurrentVolume;
+        protected int envelopeCurrentVolume;
         private boolean envelopeUpdating;
 
         @Override
@@ -609,7 +609,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
 
     protected class Channel1 extends Channel2 {
 
-        public int nr10;
+        protected int nr10;
 
         private boolean sweepEnable;
         private int sweepShadow;

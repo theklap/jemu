@@ -2,6 +2,7 @@ package io.github.arkosammy12.jemu.core.nes.ines;
 
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import io.github.arkosammy12.jemu.core.nes.NESCartridge;
+import io.github.arkosammy12.jemu.core.nes.NESEmulator;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
@@ -28,6 +29,7 @@ public class INESFile {
     private final int submapperNumber;
     private final int programRamSizeBytes;
     private final int characterRamSizeBytes;
+    private final NESEmulator.TVSystem tvSystem;
 
     public INESFile(byte[] file) {
 
@@ -36,6 +38,7 @@ public class INESFile {
         this.submapperNumber = this.getSubmapperNumber(file);
         this.programRamSizeBytes = this.getProgramRamSize(file);
         this.characterRamSizeBytes = this.getCharacterRamSize(file);
+        this.tvSystem = this.getTVSystem(file);
 
         int flags6 = (int) file[6] & 0xFF;
         this.nametableArrangement = (flags6 & 1) != 0;
@@ -99,6 +102,10 @@ public class INESFile {
         return ((int) file[5] & 0xFF) == 0 ? KB_8 : 0;
     }
 
+    protected NESEmulator.TVSystem getTVSystem(byte[] file) {
+        return NESEmulator.TVSystem.NTSC;
+    }
+
     public byte[] getProgramRom() {
         return Arrays.copyOf(this.programRomData, this.programRomData.length);
     }
@@ -139,8 +146,8 @@ public class INESFile {
         return this.hasAlternativeNametableLayout;
     }
 
-    public boolean isPAL() {
-        return false;
+    public NESEmulator.TVSystem getTVSystem() {
+        return this.tvSystem;
     }
 
     public static INESFile getINESFile(byte[] file) {

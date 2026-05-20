@@ -1,5 +1,8 @@
 package io.github.arkosammy12.jemu.core.nes.ines;
 
+import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
+import io.github.arkosammy12.jemu.core.nes.NESEmulator;
+
 public class NES20File extends ExtendedINESFile {
 
     private final int nonVolatileProgramRamSize;
@@ -88,6 +91,17 @@ public class NES20File extends ExtendedINESFile {
 
     public int getNonVolatileCharacterRamSizeBytes() {
         return this.nonVolatileCharacterRamSize;
+    }
+
+    @Override
+    protected NESEmulator.TVSystem getTVSystem(byte[] file) {
+        return switch ((int) file[12] & 0b11) {
+            case 0 -> NESEmulator.TVSystem.NTSC;
+            case 1 -> NESEmulator.TVSystem.PAL;
+            case 2 -> NESEmulator.TVSystem.MULTIPLE_REGION;
+            case 3 -> NESEmulator.TVSystem.DENDY;
+            default -> throw new EmulatorException("NES 2.0 CPU/PPU timing field value not in [0, 3]!");
+        };
     }
 
 }

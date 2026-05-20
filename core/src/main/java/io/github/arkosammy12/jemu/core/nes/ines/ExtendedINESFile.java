@@ -1,5 +1,7 @@
 package io.github.arkosammy12.jemu.core.nes.ines;
 
+import io.github.arkosammy12.jemu.core.nes.NESEmulator;
+
 public class ExtendedINESFile extends INESFile {
 
     public ExtendedINESFile(byte[] file) {
@@ -13,6 +15,11 @@ public class ExtendedINESFile extends INESFile {
     protected int getProgramRamSize(byte[] file) {
         int flags8 = (int) file[8] & 0xFF;
         return flags8 == 0 ? KB_8 : flags8 * KB_8;
+    }
+
+    @Override
+    protected NESEmulator.TVSystem getTVSystem(byte[] file) {
+        return ((int) file[9] & 1) != 0 ? NESEmulator.TVSystem.PAL : NESEmulator.TVSystem.NTSC;
     }
 
 }

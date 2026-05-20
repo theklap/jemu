@@ -2,6 +2,7 @@ package io.github.arkosammy12.jemu.core.nes;
 
 import io.github.arkosammy12.jemu.core.common.*;
 import io.github.arkosammy12.jemu.core.cpu.NMOS6502;
+import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import io.github.arkosammy12.jemu.core.nes.ines.INESFile;
 
 public class NESEmulator implements Emulator, NMOS6502.SystemBus {
@@ -23,9 +24,9 @@ public class NESEmulator implements Emulator, NMOS6502.SystemBus {
     private final NESCPUBus<?> cpuBus;
     private final NESCartridge<?> cartridge;
 
-    private final boolean isPAL;
+    private final TVSystem tvSystem;
     private final int iterationsPerFrame;
-    private final boolean deriveCyclesFromMasterClock;
+    private final Runnable runCycleFunction;
 
     private final int masterClockFrequency;
     private final int framerate;
@@ -39,29 +40,74 @@ public class NESEmulator implements Emulator, NMOS6502.SystemBus {
     public NESEmulator(SystemHost systemHost) {
         this.systemHost = systemHost;
         this.cartridge = NESCartridge.getCartridge(this, INESFile.getINESFile(this.getHost().getRom()));
-        this.isPAL = this.cartridge.getINESFile().isPAL();
+
+        // TODO: Detect TV system properly with the nes20 xml database
+        TVSystem tvSystem = this.cartridge.getINESFile().getTVSystem();
+        if (tvSystem == TVSystem.MULTIPLE_REGION) {
+            tvSystem = TVSystem.NTSC;
+        }
+        this.tvSystem = tvSystem;
         int apuSampleBufferSize;
-        if (this.isPAL) {
-            this.masterClockFrequency = PAL_MASTER_CLOCK_FREQUENCY_HZ;
-            this.framerate = PAL_FRAMERATE;
-            this.iterationsPerFrame = (PAL_MASTER_CLOCK_FREQUENCY_HZ * 2) / PAL_FRAMERATE;
-            this.cpuSubCycleDivisor = PAL_CPU_CLOCK_DIVISOR;
-            this.ppuSubCycleDivisor = PAL_PPU_CLOCK_DIVISOR;
-            apuSampleBufferSize = (PAL_MASTER_CLOCK_FREQUENCY_HZ * 2) / PAL_CPU_CLOCK_DIVISOR / PAL_FRAMERATE;
-            this.deriveCyclesFromMasterClock = true;
-        } else {
-            this.masterClockFrequency = NTSC_MASTER_CLOCK_FREQUENCY_HZ;
-            this.framerate = NTSC_FRAMERATE;
-            this.iterationsPerFrame = NTSC_MASTER_CLOCK_FREQUENCY_HZ / NTSC_CPU_CLOCK_DIVISOR / NTSC_FRAMERATE;
-            this.cpuSubCycleDivisor = NTSC_CPU_CLOCK_DIVISOR / 2;
-            this.ppuSubCycleDivisor = NTSC_PPU_CLOCK_DIVISOR / 2;
-            apuSampleBufferSize = this.iterationsPerFrame;
-            this.deriveCyclesFromMasterClock = false;
+        boolean deriveCyclesFromMasterClock;
+        switch (this.tvSystem) {
+            case NTSC -> {
+                this.masterClockFrequency = NTSC_MASTER_CLOCK_FREQUENCY_HZ;
+                this.framerate = NTSC_FRAMERATE;
+                // Calculated based on fixed ratio
+                this.iterationsPerFrame = NTSC_MASTER_CLOCK_FREQUENCY_HZ / NTSC_CPU_CLOCK_DIVISOR / NTSC_FRAMERATE;
+                this.cpuSubCycleDivisor = NTSC_CPU_CLOCK_DIVISOR / 2;
+                this.ppuSubCycleDivisor = NTSC_PPU_CLOCK_DIVISOR / 2;
+                apuSampleBufferSize = this.iterationsPerFrame;
+                deriveCyclesFromMasterClock = false;
+            }
+            case PAL -> {
+                this.masterClockFrequency = PAL_MASTER_CLOCK_FREQUENCY_HZ;
+                this.framerate = PAL_FRAMERATE;
+                // Doubling master clock frequency to account of half-cycle stepping
+                this.iterationsPerFrame = (PAL_MASTER_CLOCK_FREQUENCY_HZ * 2) / PAL_FRAMERATE;
+                this.cpuSubCycleDivisor = PAL_CPU_CLOCK_DIVISOR;
+                this.ppuSubCycleDivisor = PAL_PPU_CLOCK_DIVISOR;
+                apuSampleBufferSize = (PAL_MASTER_CLOCK_FREQUENCY_HZ * 2) / PAL_CPU_CLOCK_DIVISOR / PAL_FRAMERATE;
+                deriveCyclesFromMasterClock = true;
+
+                // TODO: PAL support
+                throw new EmulatorException("PAL NES system not supported");
+            }
+            case DENDY -> throw new EmulatorException("Dendy NES system not supported");
+            default -> throw new EmulatorException("%S NES system not supported".formatted(this.tvSystem));
         }
 
         this.ricohCore = new RP2A03<>(this, apuSampleBufferSize);
         this.ppu = new RP2C02<>(this);
         this.cpuBus = new NESCPUBus<>(this);
+
+        if (deriveCyclesFromMasterClock) {
+            this.runCycleFunction = () -> {
+                this.cpuDivisorCounter--;
+                if (this.cpuDivisorCounter <= 0) {
+                    this.ricohCore.cycleHalf();
+                    this.cpuDivisorCounter = this.cpuSubCycleDivisor;
+                }
+
+                this.ppuDivisorCounter--;
+                if (this.ppuDivisorCounter <= 0) {
+                    this.ppu.cycleHalfDot();
+                    this.ppuDivisorCounter = this.ppuSubCycleDivisor;
+                }
+            };
+        } else {
+            this.runCycleFunction = () -> {
+                this.ricohCore.cycleHalf();
+                this.ppu.cycleHalfDot();
+                this.ppu.cycleHalfDot();
+                this.ppu.cycleHalfDot();
+
+                this.ricohCore.cycleHalf();
+                this.ppu.cycleHalfDot();
+                this.ppu.cycleHalfDot();
+                this.ppu.cycleHalfDot();
+            };
+        }
     }
 
     @Override
@@ -107,50 +153,14 @@ public class NESEmulator implements Emulator, NMOS6502.SystemBus {
 
     @Override
     public void executeFrame() {
-        if (this.deriveCyclesFromMasterClock) {
-            for (int i = 0; i < this.iterationsPerFrame; i++) {
-                this.runCycleWithClockDivisors();
-            }
-        } else {
-            for (int i = 0; i < this.iterationsPerFrame; i++) {
-                this.runCycleWithRatio();
-            }
+        for (int i = 0; i < this.iterationsPerFrame; i++) {
+            this.runCycleFunction.run();
         }
     }
 
     @Override
     public void executeCycle() {
-        if (this.deriveCyclesFromMasterClock) {
-            this.runCycleWithClockDivisors();
-        } else {
-            this.runCycleWithRatio();
-        }
-    }
-
-    private void runCycleWithRatio() {
-        this.ricohCore.cycleHalf();
-        this.ppu.cycleHalfDot();
-        this.ppu.cycleHalfDot();
-        this.ppu.cycleHalfDot();
-
-        this.ricohCore.cycleHalf();
-        this.ppu.cycleHalfDot();
-        this.ppu.cycleHalfDot();
-        this.ppu.cycleHalfDot();
-    }
-
-    private void runCycleWithClockDivisors() {
-        this.cpuDivisorCounter--;
-        if (this.cpuDivisorCounter <= 0) {
-            this.ricohCore.cycleHalf();
-            this.cpuDivisorCounter = this.cpuSubCycleDivisor;
-        }
-
-        this.ppuDivisorCounter--;
-        if (this.ppuDivisorCounter <= 0) {
-            this.ppu.cycleHalfDot();
-            this.ppuDivisorCounter = this.ppuSubCycleDivisor;
-        }
+        this.runCycleFunction.run();
     }
 
     @Override
@@ -181,6 +191,13 @@ public class NESEmulator implements Emulator, NMOS6502.SystemBus {
     @Override
     public void close() throws Exception {
 
+    }
+
+    public enum TVSystem {
+        NTSC,
+        PAL,
+        DENDY,
+        MULTIPLE_REGION
     }
 
 }

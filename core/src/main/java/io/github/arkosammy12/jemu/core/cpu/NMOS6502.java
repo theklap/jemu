@@ -324,6 +324,10 @@ public class NMOS6502 implements Processor {
     // >The SYNC is an active-HIGH output signal that goes HIGH during
     // >phase-1 cycles in which an op-code fetch operation is taking place. The
     // >purpose of SYNC, therefore, is to identify op-code fetch cycles.
+    // The plan is to set it to true by placing explicilt calls in every instruction handler
+    // in each PHI1 of the fetch cycle.
+    // Then we clear it on the PHI1 following the PHI2 of the fetch cycle, unless we are halted
+    // due to RDY.
 
     @Override
     public int cycle() {
