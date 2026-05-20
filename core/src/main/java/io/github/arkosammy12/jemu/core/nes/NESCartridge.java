@@ -43,14 +43,16 @@ public abstract class NESCartridge<E extends NESEmulator> implements Bus {
         return this.iNESFile;
     }
 
-    // TODO: Add setPPUAddress() method to better model the 2 dot length of a PPU bus access.
-    // This will be needed by MMC5
     abstract public int readBytePPU(int address);
 
     abstract public void writeBytePPU(int address, int value);
 
     protected VRAMSize getVRAMSize() {
         return VRAMSize.KB_2;
+    }
+
+    public void observePPUAddress(int address) {
+
     }
 
     protected int readByteVRAM(int address) {

@@ -438,6 +438,10 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                     this.setV(T);
                     // Copying of t to v is continuous during the write
                     this.copyTtoVSignal.trigger(3, 0);
+
+                    // TODO: Use this to let cartridges observe the address before the read occurs
+                    // TODO: Place instantaneous reads back on the second dot
+                    this.emulator.getCartridge().observePPUAddress(this.getV() & 0x3FFF);
                 } else {
                     this.setT(((this.getT() & ~0x3F00) | ((value & 0b00111111) << 8)) & ~(1 << 14));
                 }

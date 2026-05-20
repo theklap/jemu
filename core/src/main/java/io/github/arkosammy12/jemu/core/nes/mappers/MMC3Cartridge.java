@@ -88,7 +88,7 @@ public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     @Override
     public int readBytePPU(int address) {
-        this.handlePPUAddressUpdate(address);
+        this.observePPUAddress(address);
         if (address >= 0x0000 && address <= 0x1FFF) {
             if (this.characterRom == null) {
                 return (int) this.characterRam[this.mapChrAddress(address) % this.characterRam.length] & 0xFF;
@@ -106,7 +106,7 @@ public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     @Override
     public void writeBytePPU(int address, int value) {
-        this.handlePPUAddressUpdate(address);
+        this.observePPUAddress(address);
         if (address >= 0x0000 && address <= 0x1FFF) {
             if (this.characterRam != null) {
                 this.characterRam[this.mapChrAddress(address) % this.characterRam.length] = (byte) value;
@@ -259,7 +259,8 @@ public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         }
     }
 
-    private void handlePPUAddressUpdate(int address) {
+    @Override
+    public void observePPUAddress(int address) {
         if (address != this.previousPPUAddress) {
             if ((address & A12) != 0 && (this.previousPPUAddress & A12) == 0 && this.cyclesDown >= 4) {
                 if (this.irqCounter == 0 || this.irqReload) {
