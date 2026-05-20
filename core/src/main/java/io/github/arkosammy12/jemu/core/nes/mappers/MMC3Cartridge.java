@@ -82,6 +82,11 @@ public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
     }
 
     @Override
+    protected VRAMSize getVRAMSize() {
+        return this.iNESFile.hasAlternativeNametableLayout() ? VRAMSize.KB_4 : VRAMSize.KB_2;
+    }
+
+    @Override
     public int readBytePPU(int address) {
         this.handlePPUAddressUpdate(address);
         if (address >= 0x0000 && address <= 0x1FFF) {
