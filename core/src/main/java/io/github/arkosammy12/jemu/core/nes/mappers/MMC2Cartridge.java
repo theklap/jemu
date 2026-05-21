@@ -23,14 +23,14 @@ public class MMC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
     private final byte[] characterRom;
     private final byte[] characterRam;
 
-    private int prgRomBankSelect;
-    private int chrRomFDLowerBankSelect;
-    private int chrRomFELowerBankSelect;
+    protected int prgRomBankSelect;
+    protected int chrRomFDLowerBankSelect;
+    protected int chrRomFELowerBankSelect;
     private int chrRomFDUpperBankSelect;
     private int chrRomFEUpperBankSelect;
     private NametableArrangement nametableArrangement = NametableArrangement.HORIZONTAL;
 
-    private CHRBankLatch latch0 = CHRBankLatch.FD;
+    protected CHRBankLatch latch0 = CHRBankLatch.FD;
     private CHRBankLatch latch1 = CHRBankLatch.FD;
 
     public MMC2Cartridge(E emulator, INESFile iNESFile) {
@@ -123,7 +123,7 @@ public class MMC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         }
     }
 
-    private int mapPrgRomAddress(int address) {
+    protected int mapPrgRomAddress(int address) {
         address &= 0x7FFF;
         if (address <= 0x1FFF) {
             return (this.prgRomBankSelect << 13) | (address & 0x1FFF);
@@ -136,7 +136,7 @@ public class MMC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         }
     }
 
-    private int mapChrAddress(int address, boolean isRead) {
+    protected int mapChrAddress(int address, boolean isRead) {
         address &= 0x1FFF;
         int mappedAddress;
         if (address <= 0xFFF) {
@@ -167,7 +167,7 @@ public class MMC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         return mappedAddress;
     }
 
-    private enum CHRBankLatch {
+    protected enum CHRBankLatch {
         FD,
         FE
     }

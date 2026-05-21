@@ -34,6 +34,7 @@ public abstract class NESCartridge<E extends NESEmulator> implements Bus {
             case 4 -> new MMC3Cartridge<>(emulator, iNESFile);
             case 7 -> new ANROMCartridge<>(emulator, iNESFile);
             case 9 -> new MMC2Cartridge<>(emulator, iNESFile);
+            case 10 -> new MMC4Cartridge<>(emulator, iNESFile);
             case 218 -> new INESMapper218Cartridge<>(emulator, iNESFile);
             default -> throw new EmulatorException("Unimplemented iNES mapper number %d!".formatted(mapperNumber));
         };
