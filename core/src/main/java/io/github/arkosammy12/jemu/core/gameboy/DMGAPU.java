@@ -81,7 +81,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
     @Override
     public int readByte(int address) {
         if (address >= WAVERAM_START && address <= WAVERAM_END) {
-            return this.channel3.readWaveRam(address);
+            return this.channel3.readWaveRAM(address);
         } else {
             return switch (address) {
                 case NR13_ADDR, NR23_ADDR, NR31_ADDR, NR33_ADDR, NR41_ADDR -> 0xFF;
@@ -109,7 +109,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
     @Override
     public void writeByte(int address, int value) {
         if (address >= WAVERAM_START && address <= WAVERAM_END) {
-            this.channel3.writeWaveRam(address, value);
+            this.channel3.writeWaveRAM(address, value);
         } else if (this.getMasterAudioEnable() || address == NR52_ADDR || address == NR11_ADDR || address == NR21_ADDR || address == NR31_ADDR || address == NR41_ADDR) {
             switch (address) {
                 case NR10_ADDR -> this.channel1.setNR10(value);
@@ -729,7 +729,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
 
     protected class Channel3 extends AudioChannel {
 
-        protected final byte[] waveRam = intToByteArray(new int[] {
+        protected final byte[] waveRAM = intToByteArray(new int[] {
                 0xE2, 0xB7, 0x10, 0x95,
                 0xC8, 0x6B, 0x0A, 0xF7,
                 0x02, 0xF6, 0x63, 0xCB,
@@ -804,29 +804,29 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
             return ((this.nrx4 & 0b111) << 8) | this.nrx3;
         }
 
-        protected int readWaveRam(int address) {
+        protected int readWaveRAM(int address) {
             boolean originalFirstFetchConsumed = this.firstFetchConsumed;
             this.firstFetchConsumed = this.fetchedFirstByte;
             if (this.getEnabled()) {
                 if (this.wavePeriodTimer <= 2 && originalFirstFetchConsumed) {
-                    return (int) this.waveRam[((this.waveRamIndex - 1) & 31) / 2] & 0xFF;
+                    return (int) this.waveRAM[((this.waveRamIndex - 1) & 31) / 2] & 0xFF;
                 } else {
                     return 0xFF;
                 }
             } else {
-                return (int) this.waveRam[address - WAVERAM_START] & 0xFF;
+                return (int) this.waveRAM[address - WAVERAM_START] & 0xFF;
             }
         }
 
-        protected void writeWaveRam(int address, int value) {
+        protected void writeWaveRAM(int address, int value) {
             boolean originalFirstFetchConsumed = this.firstFetchConsumed;
             this.firstFetchConsumed = this.fetchedFirstByte;
             if (this.getEnabled()) {
                 if (this.wavePeriodTimer <= 2 && originalFirstFetchConsumed) {
-                    this.waveRam[((this.waveRamIndex - 1) & 31) / 2] = (byte) value;
+                    this.waveRAM[((this.waveRamIndex - 1) & 31) / 2] = (byte) value;
                 }
             } else {
-                this.waveRam[address - WAVERAM_START] = (byte) value;
+                this.waveRAM[address - WAVERAM_START] = (byte) value;
             }
         }
 
@@ -846,7 +846,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
             if (this.wavePeriodTimer <= 0) {
                 this.wavePeriodTimer = (2048 - this.getPeriodFull()) * 2;
                 this.waveRamIndex = (this.waveRamIndex + 1) % 32;
-                this.waveSampleBuffer = (int) this.waveRam[this.waveRamIndex / 2] & 0xFF;
+                this.waveSampleBuffer = (int) this.waveRAM[this.waveRamIndex / 2] & 0xFF;
                 this.currentOutputLevel = this.getOutputLevel();
                 this.fetchedFirstByte = true;
             }
@@ -885,11 +885,11 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
             if (this.getEnabled() && this.wavePeriodTimer == 4) {
                 int coarseReadByteIndex = ((this.waveRamIndex - 1) & 31) / 2;
                 if (coarseReadByteIndex <= 3) {
-                    this.waveRam[0] = this.waveRam[coarseReadByteIndex];
+                    this.waveRAM[0] = this.waveRAM[coarseReadByteIndex];
                 } else {
                     int beginIndex = coarseReadByteIndex & ~0b11;
                     for (int i = beginIndex, j = 0; i <= beginIndex + 3; i++, j++) {
-                        this.waveRam[j] = this.waveRam[i];
+                        this.waveRAM[j] = this.waveRAM[i];
                     }
                 }
             }

@@ -65,12 +65,12 @@ public class SM83<S extends SM83.SystemBus> implements Processor {
         return this.mode;
     }
 
-    public int readHRam(int address) {
-        return this.hram[address];
+    public int readHRAM(int address) {
+        return this.hram[address & 0x7F];
     }
 
-    public void writeHRam(int address, int value) {
-        this.hram[address] = value & 0xFF;
+    public void writeHRAM(int address, int value) {
+        this.hram[address & 0x7F] = value & 0xFF;
     }
 
     protected void setPC(int value) {

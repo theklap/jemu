@@ -12,21 +12,21 @@ import java.util.Optional;
 public class MBC0 extends GameBoyCartridge {
 
     private final byte[] rom = new byte[0x8000];
-    private final byte @Nullable [] sRam;
+    private final byte @Nullable [] sram;
     private final boolean hasBattery;
 
     public MBC0(GameBoyEmulator emulator, int cartridgeType) {
         super(emulator, cartridgeType);
 
         if (cartridgeType == 0x08 || cartridgeType == 0x09) {
-            this.sRam = switch (this.ramSizeHeader) {
+            this.sram = switch (this.ramSizeHeader) {
                 case 0x00 -> null;
                 case 0x01 -> new byte[0x800];
                 case 0x02 -> new byte[0x2000];
                 default -> throw new EmulatorException("Incompatible RAM size header $%02X for MBC0 GameBoy cartridge type!".formatted(this.ramSizeHeader));
             };
         } else {
-            this.sRam = null;
+            this.sram = null;
         }
 
         this.hasBattery = cartridgeType == 0x09;
@@ -39,11 +39,11 @@ public class MBC0 extends GameBoyCartridge {
 
         if (this.hasBattery) {
             this.readSaveData().ifPresent(saveData -> {
-                if (this.sRam == null) {
+                if (this.sram == null) {
                     return;
                 }
                 try {
-                    System.arraycopy(saveData, 0, this.sRam, 0, Math.min(saveData.length, this.sRam.length));
+                    System.arraycopy(saveData, 0, this.sram, 0, Math.min(saveData.length, this.sram.length));
                 } catch (Exception e) {
                     Logger.error("Error reading save data for GameBoy MBC0 cartridge: {}", e);
                 }
@@ -58,8 +58,8 @@ public class MBC0 extends GameBoyCartridge {
             return (int) this.rom[address] & 0xFF;
         } else if (address >= 0xA000 && address <= 0xBFFF) {
             address -= 0xA000;
-            if (this.sRam != null && address < this.sRam.length) {
-                return (int) this.sRam[address] & 0xFF;
+            if (this.sram != null && address < this.sram.length) {
+                return (int) this.sram[address] & 0xFF;
             } else {
                 return 0xFF;
             }
@@ -72,15 +72,15 @@ public class MBC0 extends GameBoyCartridge {
     public void writeByte(int address, int value) {
         if (address >= 0xA000 && address <= 0xBFFF) {
             address -= 0xA000;
-            if (this.sRam != null && address < this.sRam.length) {
-                this.sRam[address] = (byte) value;
+            if (this.sram != null && address < this.sram.length) {
+                this.sram[address] = (byte) value;
             }
         }
     }
 
     @Override
     protected Optional<byte[]> getSaveData() {
-        return Optional.ofNullable(this.hasBattery ? this.sRam : null);
+        return Optional.ofNullable(this.hasBattery ? this.sram : null);
     }
 
 }

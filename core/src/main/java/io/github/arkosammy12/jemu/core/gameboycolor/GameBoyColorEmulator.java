@@ -69,7 +69,7 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
         return this.timerController;
     }
 
-    public CPUSpeed getCpuSpeed() {
+    public CPUSpeed getCPUSpeed() {
         return (this.key1 & 0x80) != 0 ? CPUSpeed.DOUBLE_SPEED : CPUSpeed.SINGLE_SPEED;
     }
 
@@ -88,7 +88,7 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
         DMGSerialController<?> serialController = this.getSerialController();
 
         if ((this.key1 & 0x80) == 0) {
-            boolean haltCpu = bus.haltCpu();
+            boolean haltCpu = bus.haltCPU();
             if (!haltCpu) {
                 cpu.cycle();
             }
@@ -107,7 +107,7 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
             bus.cycleOAMDMA();
             bus.cycleVDMA();
         } else {
-            boolean haltCpu = bus.haltCpu();
+            boolean haltCpu = bus.haltCPU();
             if (!haltCpu) {
                 cpu.cycle();
             }
@@ -119,7 +119,7 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
                 cpu.nextState();
             }
 
-            haltCpu = bus.haltCpu();
+            haltCpu = bus.haltCPU();
             if (!haltCpu) {
                 cpu.cycle();
             }
@@ -166,15 +166,15 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
         }
     }
 
-    public void writeKey1(int value) {
+    public void writeKEY1(int value) {
         this.key1 = (this.key1 & 0x80) | (value & 1);
     }
 
-    public int readKey0() {
+    public int readKEY0() {
         return this.dmgCompatibilityMode ? 0xFF : 0xFB;
     }
 
-    public int readKey1() {
+    public int readKEY1() {
         return this.key1 | 0b01111110;
     }
 

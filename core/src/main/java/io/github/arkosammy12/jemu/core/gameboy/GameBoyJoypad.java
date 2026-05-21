@@ -1,6 +1,5 @@
 package io.github.arkosammy12.jemu.core.gameboy;
 
-import io.github.arkosammy12.jemu.core.common.Processor;
 import io.github.arkosammy12.jemu.core.common.SystemController;
 import io.github.arkosammy12.jemu.core.cpu.SM83;
 

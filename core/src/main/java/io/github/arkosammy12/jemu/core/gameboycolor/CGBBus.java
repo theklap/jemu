@@ -225,7 +225,7 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
     public static final int UNK_3_ADDR = 0xFF74;
     public static final int UNK_4_ADDR = 0xFF75;
 
-    private int workRamBank = 1;
+    private int workRAMBank = 1;
 
     private int infraredPort;
 
@@ -246,19 +246,19 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
     private boolean vdmaTransferInProgress;
     private boolean vdmaCopyingBlock;
     private int vdmaTransferredBytes;
-    private boolean haltCpu;
+    private boolean haltCPU;
 
     public CGBBus(E emulator) {
         super(emulator);
     }
 
     @Override
-    protected byte[][] createWorkRam() {
+    protected byte[][] createWorkRAM() {
         return new byte[8][0x1000];
     }
 
-    public boolean haltCpu() {
-        return this.haltCpu;
+    public boolean haltCPU() {
+        return this.haltCPU;
     }
 
     @Override
@@ -274,19 +274,19 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
                 return SAMEBOY_CGB_BOOT_ROM[address];
             }
         } else if (address >= WRAMX_START && address <= WRAMX_END) {
-            return (int) this.workRam[this.workRamBank][address - WRAMX_START] & 0xFF;
+            return (int) this.workRAM[this.workRAMBank][address & 0xFFF] & 0xFF;
         } else if (address >= ECHO_START && address <= ECHO_END) {
             address &= 0x1FFF;
-            if (address < this.workRam[0].length) {
-                return (int) this.workRam[0][address] & 0xFF;
+            if (address < this.workRAM[0].length) {
+                return (int) this.workRAM[0][address] & 0xFF;
             } else {
-                return (int) this.workRam[this.workRamBank][address & 0xFFF] & 0xFF;
+                return (int) this.workRAM[this.workRAMBank][address & 0xFFF] & 0xFF;
             }
         } else if (address >= IO_START && address <= IO_END) {
             return switch (address) {
-                case KEY_0_ADDR -> this.emulator.readKey0();
-                case KEY_1_ADDR -> this.emulator.readKey1();
-                case WBK_ADDR -> this.workRamBank | 0b11111000;
+                case KEY_0_ADDR -> this.emulator.readKEY0();
+                case KEY_1_ADDR -> this.emulator.readKEY1();
+                case WBK_ADDR -> this.workRAMBank | 0b11111000;
                 case RP_ADDR -> this.infraredPort | 0b00111100;
                 case UNK_1_ADDR -> this.unknownRegister1;
                 case UNK_2_ADDR -> this.unknownRegister2;
@@ -315,22 +315,22 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
             return;
         }
         if (address >= WRAMX_START && address <= WRAMX_END) {
-            this.workRam[this.workRamBank][address - WRAMX_START] = (byte) value;
+            this.workRAM[this.workRAMBank][address & 0xFFF] = (byte) value;
         } else if (address >= ECHO_START && address <= ECHO_END) {
             address &= 0x1FFF;
-            if (address < this.workRam[0].length) {
-                this.workRam[0][address] = (byte) value;
+            if (address < this.workRAM[0].length) {
+                this.workRAM[0][address] = (byte) value;
             } else {
-                this.workRam[this.workRamBank][address & 0xFFF] = (byte) value;
+                this.workRAM[this.workRAMBank][address & 0xFFF] = (byte) value;
             }
         }  else if (address >= IO_START && address <= IO_END) {
             switch (address) {
                 case KEY_0_ADDR -> this.emulator.writeKey0(value);
-                case KEY_1_ADDR -> this.emulator.writeKey1(value);
+                case KEY_1_ADDR -> this.emulator.writeKEY1(value);
                 case WBK_ADDR -> {
-                    this.workRamBank = value & 0b111;
-                    if (this.workRamBank == 0) {
-                        this.workRamBank = 1;
+                    this.workRAMBank = value & 0b111;
+                    if (this.workRAMBank == 0) {
+                        this.workRAMBank = 1;
                     }
                 }
                 case RP_ADDR -> this.infraredPort = (this.infraredPort & 0b10) | (value & 0b11111101);
@@ -348,7 +348,7 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
                             this.vdmaControl = value & 0xFF;
                             this.vdmaControl &= ~0x80;
                             this.currentVDMAType = VDMAType.HBLANK;
-                            this.vdmaTransferDelay = switch (this.emulator.getCpuSpeed()) {
+                            this.vdmaTransferDelay = switch (this.emulator.getCPUSpeed()) {
                                 case DOUBLE_SPEED -> 1;
                                 case SINGLE_SPEED -> 2;
                             };
@@ -363,7 +363,7 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
                         this.vdmaControl = value & 0xFF;
                         this.vdmaControl &= ~0x80;
                         this.currentVDMAType = (value & 0x80) != 0 ? VDMAType.HBLANK : VDMAType.GENERAL;
-                        this.vdmaTransferDelay = switch (this.emulator.getCpuSpeed()) {
+                        this.vdmaTransferDelay = switch (this.emulator.getCPUSpeed()) {
                             case DOUBLE_SPEED -> 1;
                             case SINGLE_SPEED -> 2;
                         };
@@ -402,7 +402,7 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
                             this.vdmaTransferInProgress = false;
                             this.vdmaCopyingBlock = false;
                             this.currentVDMAType = null;
-                            this.haltCpu = false;
+                            this.haltCPU = false;
                             this.vdmaControl |= 0x80;
                         }
                     }
@@ -410,23 +410,23 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
                 case HBLANK -> {
                     if (this.vdmaCopyingBlock) {
                         if (this.emulator.getCpu().getMode() == SM83.Mode.EXECUTING) {
-                            this.haltCpu = true;
+                            this.haltCPU = true;
                             boolean destinationOverflowed = this.tickBlockTransfer();
                             if (this.vdmaTransferredBytes % 16 == 0) {
                                 this.vdmaCopyingBlock = false;
-                                this.haltCpu = false;
+                                this.haltCPU = false;
                                 this.vdmaControl = (this.vdmaControl - 1) & 0xFF;
                             }
                             if ((this.vdmaTransferredBytes >= ((this.vdmaCurrentSize + 1)) * 16) || destinationOverflowed) {
                                 this.vdmaTransferInProgress = false;
                                 this.vdmaCopyingBlock = false;
-                                this.haltCpu = false;
+                                this.haltCPU = false;
                                 this.currentVDMAType = null;
                                 this.oldPpuMode = -1;
                                 this.vdmaControl |= 0x80;
                             }
                         } else {
-                            this.haltCpu = false;
+                            this.haltCPU = false;
                         }
                     }
                 }
@@ -447,13 +447,13 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
             switch (this.currentVDMAType) {
                 case GENERAL -> {
                     this.vdmaCopyingBlock = true;
-                    this.haltCpu = true;
+                    this.haltCPU = true;
                 }
                 case HBLANK -> {
                     int ppuMode = this.emulator.getVideoGenerator().getMode().getValue();
                     if (!DMGPPU.Mode.MODE_0_HBLANK.matchesValue(this.oldPpuMode) && DMGPPU.Mode.MODE_0_HBLANK.matchesValue(ppuMode)) {
                         this.vdmaCopyingBlock = true;
-                        this.haltCpu = true;
+                        this.haltCPU = true;
                     }
                     this.oldPpuMode = ppuMode;
                 }
@@ -492,9 +492,9 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
         } else if (address >= VRAM_START && address <= VRAM_END) {
             return 0xFF;
         } else if (address >= WRAM0_START && address <= WRAM0_END) {
-            return (int) this.workRam[0][address - WRAM0_START] & 0xFF;
+            return (int) this.workRAM[0][address & 0xFFF] & 0xFF;
         } else if (address >= WRAMX_START && address <= WRAMX_END) {
-            return (int) this.workRam[this.workRamBank][address - WRAMX_START] & 0xFF;
+            return (int) this.workRAM[this.workRAMBank][address & 0xFFF] & 0xFF;
         } else if (address >= 0xE000 && address <= 0xFFFF) {
             return 0xFF;
             //return this.emulator.getCartridge().readByte(0xA000 + (address - 0xE000));
@@ -516,20 +516,20 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
                 return super.readByteOAMDMA(address);
             }
         } else if (address >= WRAMX_START && address <= WRAMX_END) {
-            return (int) this.workRam[this.workRamBank][address - WRAMX_START] & 0xFF;
+            return (int) this.workRAM[this.workRAMBank][address & 0xFFF] & 0xFF;
         } else if (address >= ECHO_START && address <= ECHO_END) {
             address &= 0x1FFF;
-            if (address < this.workRam[0].length) {
-                return (int) this.workRam[0][address] & 0xFF;
+            if (address < this.workRAM[0].length) {
+                return (int) this.workRAM[0][address] & 0xFF;
             } else {
-                return (int) this.workRam[this.workRamBank][address & 0xFFF] & 0xFF;
+                return (int) this.workRAM[this.workRAMBank][address & 0xFFF] & 0xFF;
             }
         } else if (address >= 0xFE00 && address <= 0xFFFF) {
             address &= 0x1FFF;
-            if (address < this.workRam[0].length) {
-                return (int) this.workRam[0][address] & 0xFF;
+            if (address < this.workRAM[0].length) {
+                return (int) this.workRAM[0][address] & 0xFF;
             } else {
-                return (int) this.workRam[this.workRamBank][address & 0xFFF] & 0xFF;
+                return (int) this.workRAM[this.workRAMBank][address & 0xFFF] & 0xFF;
             }
         } else {
             return super.readByteOAMDMA(address);

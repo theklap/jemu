@@ -78,7 +78,7 @@ public class DMGBus<E extends GameBoyEmulator> implements Bus {
 
     protected final E emulator;
 
-    protected final byte[][] workRam;
+    protected final byte[][] workRAM;
 
     private int interruptFlag;
     private int interruptEnable;
@@ -92,10 +92,10 @@ public class DMGBus<E extends GameBoyEmulator> implements Bus {
 
     public DMGBus(E emulator) {
         this.emulator = emulator;
-        this.workRam = this.createWorkRam();
+        this.workRAM = this.createWorkRAM();
     }
 
-    protected byte[][] createWorkRam() {
+    protected byte[][] createWorkRAM() {
         return new byte[1][0x2000];
     }
 
@@ -120,16 +120,16 @@ public class DMGBus<E extends GameBoyEmulator> implements Bus {
         if (this.isOAMDMABusConflict(address)) {
             // TODO: Perhaps this value is only returned when reading from OAM. Otherwise return the current value being read by OAM. Check numism test ROM for info.
             return 0xFF;
-        } if (this.enableBootRom && address >= 0x0000 && address <= 0x00FF) {
-            return BOOTIX[address];
         } else if ((address >= ROM0_START && address <= ROMX_END) || (address >= SRAM_START && address <= SRAM_END)) {
-            return this.emulator.getCartridge().readByte(address);
+            if (this.enableBootRom && address <= 0x00FF) {
+                return BOOTIX[address];
+            } else {
+                return this.emulator.getCartridge().readByte(address);
+            }
         } else if ((address >= VRAM_START && address <= VRAM_END) || (address >= OAM_START && address <= OAM_END)) {
             return this.emulator.getVideoGenerator().readByte(address);
-        } else if (address >= WRAM0_START && address <= WRAMX_END) {
-            return (int) this.workRam[0][address - WRAM0_START] & 0xFF;
-        } else if (address >= ECHO_START && address <= ECHO_END) {
-            return (int) this.workRam[0][address & 0x1FFF] & 0xFF;
+        } else if (address >= WRAM0_START && address <= ECHO_END) {
+            return (int) this.workRAM[0][address & 0x1FFF] & 0xFF;
         } else if (address >= UNUSED_START && address <= UNUSED_END) {
             return 0x00;
         } else if ((address >= IO_START && address <= IO_END) || address == IE_ADDR) {
@@ -152,7 +152,7 @@ public class DMGBus<E extends GameBoyEmulator> implements Bus {
                 }
             };
         } else if (address >= HRAM_START && address <= HRAM_END) {
-            return this.emulator.getCpu().readHRam(address - HRAM_START);
+            return this.emulator.getCpu().readHRAM(address);
         } else {
             throw new EmulatorException("Invalid GameBoy memory address $%04X!".formatted(address));
         }
@@ -167,10 +167,8 @@ public class DMGBus<E extends GameBoyEmulator> implements Bus {
             this.emulator.getCartridge().writeByte(address, value);
         } else if ((address >= VRAM_START && address <= VRAM_END) || (address >= OAM_START && address <= OAM_END)) {
             this.emulator.getVideoGenerator().writeByte(address, value);
-        } else if (address >= WRAM0_START && address <= WRAMX_END) {
-            this.workRam[0][address - WRAM0_START] = (byte) value;
-        } else if (address >= ECHO_START && address <= ECHO_END) {
-            this.workRam[0][address & 0x1FFF] = (byte) value;
+        } else if (address >= WRAM0_START && address <= ECHO_END) {
+            this.workRAM[0][address & 0x1FFF] = (byte) value;
         } else if (address >= UNUSED_START && address <= UNUSED_END) {
             // TODO: TRIGGER OAM BUG
         } else if ((address >= IO_START && address <= IO_END) || address == IE_ADDR) {
@@ -194,7 +192,7 @@ public class DMGBus<E extends GameBoyEmulator> implements Bus {
                 }
             }
         } else if (address >= HRAM_START && address <= HRAM_END) {
-            this.emulator.getCpu().writeHRam(address - HRAM_START, value);
+            this.emulator.getCpu().writeHRAM(address, value);
         } else {
             throw new EmulatorException("Invalid GameBoy memory address $%04X!".formatted(address));
         }
@@ -221,18 +219,18 @@ public class DMGBus<E extends GameBoyEmulator> implements Bus {
     }
 
     protected int readByteOAMDMA(int address) {
-        if (this.enableBootRom && address >= 0x0000 && address <= 0x00FF) {
-            return BOOTIX[address];
-        } else if ((address >= ROM0_START && address <= ROMX_END) || (address >= SRAM_START && address <= SRAM_END)) {
-            return this.emulator.getCartridge().readByte(address);
+        if ((address >= ROM0_START && address <= ROMX_END) || (address >= SRAM_START && address <= SRAM_END)) {
+            if (this.enableBootRom && address <= 0x00FF) {
+                return BOOTIX[address];
+            } else {
+                return this.emulator.getCartridge().readByte(address);
+            }
         } else if (address >= VRAM_START && address <= VRAM_END) {
             return this.emulator.getVideoGenerator().readByte(address);
-        } else if (address >= WRAM0_START && address <= WRAMX_END) {
-            return (int) this.workRam[0][address - WRAM0_START] & 0xFF;
-        } else if (address >= ECHO_START && address <= ECHO_END) {
-            return (int) this.workRam[0][address & 0x1FFF] & 0xFF;
+        } else if (address >= WRAM0_START && address <= ECHO_END) {
+            return (int) this.workRAM[0][address & 0x1FFF] & 0xFF;
         } else if (address >= 0xFE00 && address <= 0xFFFF) {
-            return (int) this.workRam[0][address & 0x1FFF] & 0xFF;
+            return (int) this.workRAM[0][address & 0x1FFF] & 0xFF;
         } else {
             throw new EmulatorException("Invalid GameBoy memory address %04X!".formatted(address));
         }

@@ -27,22 +27,22 @@ public class CGBAPU<E extends GameBoyColorEmulator> extends DMGAPU<E> {
         private boolean triggeredThisCycle = false;
 
         @Override
-        protected int readWaveRam(int address) {
+        protected int readWaveRAM(int address) {
             this.firstFetchConsumed = this.fetchedFirstByte;
             if (this.getEnabled()) {
-                return (int) this.waveRam[((this.waveRamIndex - 1) & 31) / 2] & 0xFF;
+                return (int) this.waveRAM[((this.waveRamIndex - 1) & 31) / 2] & 0xFF;
             } else {
-                return (int) this.waveRam[address - WAVERAM_START] & 0xFF;
+                return (int) this.waveRAM[address - WAVERAM_START] & 0xFF;
             }
         }
 
         @Override
-        protected void writeWaveRam(int address, int value) {
+        protected void writeWaveRAM(int address, int value) {
             this.firstFetchConsumed = this.fetchedFirstByte;
             if (this.getEnabled()) {
-                this.waveRam[((this.waveRamIndex - 1) & 31) / 2] = (byte) value;
+                this.waveRAM[((this.waveRamIndex - 1) & 31) / 2] = (byte) value;
             } else {
-                this.waveRam[address - WAVERAM_START] = (byte) value;
+                this.waveRAM[address - WAVERAM_START] = (byte) value;
             }
         }
 

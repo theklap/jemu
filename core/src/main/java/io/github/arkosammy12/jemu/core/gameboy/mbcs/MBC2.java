@@ -13,7 +13,7 @@ public class MBC2 extends GameBoyCartridge {
     private static final int A8_MASK = 1 << 8;
 
     private final byte[][] romBanks;
-    private final byte @Nullable [] sRam;
+    private final byte @Nullable [] sram;
     private final boolean hasBattery;
 
     private final int romBankMask;
@@ -33,10 +33,10 @@ public class MBC2 extends GameBoyCartridge {
         };
 
         if (cartridgeType == 0x06) {
-            this.sRam = new byte[512];
+            this.sram = new byte[512];
             this.hasBattery = true;
         } else {
-            this.sRam = null;
+            this.sram = null;
             this.hasBattery = false;
         }
 
@@ -55,7 +55,7 @@ public class MBC2 extends GameBoyCartridge {
         if (this.hasBattery) {
             this.readSaveData().ifPresent(saveData -> {
                 try {
-                    System.arraycopy(saveData, 0, this.sRam, 0, Math.min(saveData.length, this.sRam.length));
+                    System.arraycopy(saveData, 0, this.sram, 0, Math.min(saveData.length, this.sram.length));
                 } catch (Exception e) {
                     Logger.error("Error reading save data for GameBoy MBC2 cartridge: {}", e);
                 }
@@ -71,8 +71,8 @@ public class MBC2 extends GameBoyCartridge {
         } else if (address >= 0x4000 && address <= 0x7FFF) {
             return (int) this.romBanks[(this.romBankNumber & 0xF) & this.romBankMask][address - 0x4000] & 0xFF;
         } else if (address >= 0xA000 && address <= 0xBFFF) {
-            if ((this.ramGate & 0xF) == 0b1010 && this.sRam != null) {
-                return ((int) this.sRam[address & 0x1FF] & 0xFF) | 0xF0;
+            if ((this.ramGate & 0xF) == 0b1010 && this.sram != null) {
+                return ((int) this.sram[address & 0x1FF] & 0xFF) | 0xF0;
             } else {
                 return 0xFF;
             }
@@ -94,15 +94,15 @@ public class MBC2 extends GameBoyCartridge {
                 this.romBankNumber = effectiveBankNumber & this.romBankMask;
             }
         } else if (address >= 0xA000 && address <= 0xBFFF) {
-            if ((this.ramGate & 0xF) == 0b1010 && this.sRam != null) {
-                this.sRam[address & 0x1FF] = (byte) value;
+            if ((this.ramGate & 0xF) == 0b1010 && this.sram != null) {
+                this.sram[address & 0x1FF] = (byte) value;
             }
         }
     }
 
     @Override
     protected Optional<byte[]> getSaveData() {
-        return Optional.ofNullable(this.hasBattery ? this.sRam : null);
+        return Optional.ofNullable(this.hasBattery ? this.sram : null);
     }
 
 }
