@@ -10198,7 +10198,7 @@ public class NMOS6502 implements Processor {
                 pollInterrupts();
                 if (condition) {
                     int base = (getPC() + 1) & 0xFFFF;
-                    setAddress((base + getOperand()) & 0xFFFF);
+                    setAddress((base + (int) (byte) getOperand()) & 0xFFFF);
                     setBoundaryCrossed(getAddressHigh() != ((base >>> 8) & 0xFF));
                 }
 
