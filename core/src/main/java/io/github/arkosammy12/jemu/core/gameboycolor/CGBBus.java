@@ -246,7 +246,7 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
     private boolean vdmaTransferInProgress;
     private boolean vdmaCopyingBlock;
     private int vdmaTransferredBytes;
-    private boolean haltCPU;
+    private boolean haltCPU; // Make sure this is only mutated in cycleVDMA()
 
     public CGBBus(E emulator) {
         super(emulator);
