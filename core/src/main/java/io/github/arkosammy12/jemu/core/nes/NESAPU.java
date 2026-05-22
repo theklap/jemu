@@ -5,6 +5,7 @@ import io.github.arkosammy12.jemu.core.common.Bus;
 import io.github.arkosammy12.jemu.core.drivers.AudioDriver;
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import io.github.arkosammy12.jemu.core.util.ActionSignal;
+import io.github.arkosammy12.jemu.core.util.ActionSignalDispatcher;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Optional;
@@ -29,10 +30,11 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
 
     private int frameCounterCycleCounter;
 
-    private final ActionSignal frameCounterControlUpdateSignal;
-    private final ActionSignal clockHalfFrameSignal;
-    private final ActionSignal clockQuarterFrameSignal;
-    private final ActionSignal clearFrameInterruptFlagSignal;
+    private final ActionSignalDispatcher signalDispatcher = new ActionSignalDispatcher();
+    private final int frameCounterControlUpdateSignalId;
+    private final int clockHalfFrameSignalId;
+    private final int clockQuarterFrameSignalId;
+    private final int clearFrameInterruptFlagSignalId;
 
     private final Runnable frameCounterClocker;
 
@@ -48,7 +50,7 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
         this.emulator = emulator;
         this.sampleBuffer = new byte[samplesPerFrame];
 
-        this.frameCounterControlUpdateSignal = new ActionSignal(newJoy2Value -> {
+        this.frameCounterControlUpdateSignalId = this.signalDispatcher.addSignal(newJoy2Value -> {
             this.frameCounterStepMode = (newJoy2Value & (1 << 7)) != 0 ? FrameCounterStepMode.STEP_5 : FrameCounterStepMode.STEP_4;
             this.frameCounterInterruptInhibitFlag = (newJoy2Value & (1 << 6)) != 0;
             this.frameCounterCycleCounter = 0;
@@ -57,10 +59,9 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
                 this.frameInterruptFlagForIRQSignal = false;
             }
         });
-
-        this.clockHalfFrameSignal = new ActionSignal(_ -> this.clockHalfFrame());
-        this.clockQuarterFrameSignal = new ActionSignal(_ -> this.clockQuarterFrame());
-        this.clearFrameInterruptFlagSignal = new ActionSignal(_ -> {
+        this.clockHalfFrameSignalId = this.signalDispatcher.addSignal(_ -> this.clockHalfFrame());
+        this.clockQuarterFrameSignalId = this.signalDispatcher.addSignal(_ -> this.clockQuarterFrame());
+        this.clearFrameInterruptFlagSignalId = this.signalDispatcher.addSignal(_ -> {
             this.frameInterruptFlag = false;
             this.frameInterruptFlagForIRQSignal = false;
         });
@@ -239,7 +240,7 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
                 ret |= this.pulseChannel2.getLengthCounter() > 0 ? 1 << 1 : 0;
                 ret |= this.pulseChannel1.getLengthCounter() > 0 ? 1 : 0;
 
-                this.clearFrameInterruptFlagSignal.trigger(switch (this.getCurrentApuHalfCycleType()) {
+                this.signalDispatcher.trigger(this.clearFrameInterruptFlagSignalId, switch (this.getCurrentApuHalfCycleType()) {
                     case GET -> 2;
                     case PUT -> 1;
                 }, 0);
@@ -281,11 +282,10 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
             }
             case JOY2_ADDR -> { // Frame counter control
 
-                this.frameCounterControlUpdateSignal.trigger(switch (this.getCurrentApuHalfCycleType()) {
+                this.signalDispatcher.trigger(this.frameCounterControlUpdateSignalId, switch (this.getCurrentApuHalfCycleType()) {
                     case GET -> 5;
                     case PUT -> 4;
                 }, value & 0xFF);
-
 
                 if ((value & 0x80) != 0) {
                     this.clockHalfFrame();
@@ -315,10 +315,7 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
 
     public void cycleHalf() {
 
-        this.clockQuarterFrameSignal.tick();
-        this.clockHalfFrameSignal.tick();
-        this.frameCounterControlUpdateSignal.tick();
-        this.clearFrameInterruptFlagSignal.tick();
+        this.signalDispatcher.tick();
 
         this.frameCounterClocker.run();
 
@@ -368,11 +365,11 @@ public class NESAPU<E extends NESEmulator> extends AudioGenerator<E> implements 
     }
 
     private void signalHalfFrameClock() {
-        this.clockHalfFrameSignal.trigger(1, 0);
+        this.signalDispatcher.trigger(this.clockHalfFrameSignalId, 1, 0);
     }
 
     private void signalQuarterFrameClock() {
-        this.clockQuarterFrameSignal.trigger(1, 0);
+        this.signalDispatcher.trigger(this.clockQuarterFrameSignalId, 1, 0);
     }
 
     private void trySetFrameCounterIRQFlag() {

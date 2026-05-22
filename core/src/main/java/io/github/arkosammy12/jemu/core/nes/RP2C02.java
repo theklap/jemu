@@ -4,6 +4,7 @@ import io.github.arkosammy12.jemu.core.common.Bus;
 import io.github.arkosammy12.jemu.core.common.VideoGenerator;
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import io.github.arkosammy12.jemu.core.util.ActionSignal;
+import io.github.arkosammy12.jemu.core.util.ActionSignalDispatcher;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -229,15 +230,18 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
     private boolean sprite0OnNextScanline;
     private boolean sprite0OnThisScanline;
 
-    private final ActionSignal copyTtoVSignal;
-    private final ActionSignal toggleRenderingSignal;
-    private final ActionSignal clearVisibleVblOnPpuStatusReadSignal;
-    private final ActionSignal clearInternalVblOnPpuStatusReadSignal;
-    private final ActionSignal setSprite0HItSignal;
+
+    private final ActionSignalDispatcher signalDispatcher = new ActionSignalDispatcher();
+    private final int copyTtoVSignalId;
+    private final int toggleRenderingSignalId;
+    private final int clearVisibleVblOnPpuStatusReadSignalId;
+    private final int clearInternalVblOnPpuStatusReadSignalId;
+    private final int setSprite0HItSignalId;
+
     private final ActionSignal refreshSpriteShiftersSignal;
     // TODO: Use an action signal triggered at dot 339 of the last scanline of odd frames to signal the skipping of a dot for NTSC
 
-    private int decayPpuDataBusCountdown;
+    private int decayPPUDataBusCountdown;
 
     private final LinkedList<Integer> backgroundShiftRegister = new LinkedList<>();
     private final LinkedList<Integer> attributeShiftRegister = new LinkedList<>();
@@ -291,24 +295,22 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         // This is not necessarily hardware accurate.
         Arrays.fill(this.secondaryOAM, 0xFF);
 
-        this.copyTtoVSignal = new ActionSignal(_ -> this.setV(this.getT()));
-        this.toggleRenderingSignal = new ActionSignal(_ -> this.isRendering = !this.isRendering);
-        this.clearVisibleVblOnPpuStatusReadSignal = new ActionSignal(_ -> {
-            this.setVBlankFlag(false);
-        });
-        this.clearInternalVblOnPpuStatusReadSignal = new ActionSignal(_ -> {
-            this.vBlankFlagForNMI = false;
-        });
-        this.setSprite0HItSignal = new ActionSignal(_ -> {
+        this.copyTtoVSignalId = this.signalDispatcher.addSignal(_ -> this.setV(this.getT()));
+        this.toggleRenderingSignalId = this.signalDispatcher.addSignal(_ -> this.isRendering = !this.isRendering);
+        this.clearVisibleVblOnPpuStatusReadSignalId = this.signalDispatcher.addSignal(_ -> this.setVBlankFlag(false));
+        this.clearInternalVblOnPpuStatusReadSignalId = this.signalDispatcher.addSignal(_ -> this.vBlankFlagForNMI = false);
+        this.setSprite0HItSignalId = this.signalDispatcher.addSignal(_ -> {
             if (this.isRenderingEnabled()) {
                 this.setSprite0HitFlag(true);
             }
         });
+
         this.refreshSpriteShiftersSignal = new ActionSignal(_ -> {
             for (SpriteShifter shifter : this.spriteShifters) {
                 shifter.refreshXPositionCounters();
             }
         });
+
     }
 
     @Override
@@ -355,7 +357,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 // VBL flag is continuously reset during the read window of PPUSTATUS, between 1.0 and 1.5 dots
                 this.setVBlankFlag(false);
                 this.vBlankFlagForNMI = false;
-                this.clearVisibleVblOnPpuStatusReadSignal.trigger(2, 0);
+                this.signalDispatcher.trigger(this.clearVisibleVblOnPpuStatusReadSignalId, 2, 0);
+                this.signalDispatcher.trigger(this.clearInternalVblOnPpuStatusReadSignalId, 1, 0);
                 this.clearW();
                 int ret = (value & 0b11100000) | (this.dataBus & 0b00011111);
                 this.setDataBus(ret);
@@ -428,7 +431,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 this.ppuMask = value & 0xFF;
                 if (originalEnableRendering != (this.enableBackgroundRendering() || this.enableSpriteRendering())) {
                     // Change in rendering behavior takes 3 - 4 dots
-                    this.toggleRenderingSignal.trigger(7, 0);
+                    this.signalDispatcher.trigger(this.toggleRenderingSignalId, 7, 0);
                 }
             }
             case PPUSTATUS_ADDR -> {}
@@ -456,7 +459,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                     this.setT(T);
                     this.setV(T);
                     // Copying of t to v is continuous during the write
-                    this.copyTtoVSignal.trigger(3, 0);
+                    this.signalDispatcher.trigger(this.copyTtoVSignalId, 3, 0);
 
                     // TODO: Use this to let cartridges observe the address before the read occurs
                     // TODO: Place instantaneous reads back on the second dot
@@ -488,7 +491,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         this.dataBus = value & 0xFF;
         // It takes around 30000 to 40000 PPU cycles for the PPU data bus value to decay
         // TODO: Individual decay timers for bits which are driven by returned values. Undriven bits should not have their decay timers updated
-        this.decayPpuDataBusCountdown = 40000 * 2;
+        this.decayPPUDataBusCountdown = 40000 * 2;
     }
 
     private void setNMISignal(boolean value) {
@@ -557,16 +560,13 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
     public void cycleHalfDot() {
 
-        this.copyTtoVSignal.tick();
-        this.toggleRenderingSignal.tick();
-        this.clearVisibleVblOnPpuStatusReadSignal.tick();
-        this.clearInternalVblOnPpuStatusReadSignal.tick();
-        this.setSprite0HItSignal.tick();
+        this.signalDispatcher.tick();
+
         this.emulator.getCartridge().onPPUHalfDot();
 
-        if (this.decayPpuDataBusCountdown > 0) {
-            this.decayPpuDataBusCountdown--;
-            if (this.decayPpuDataBusCountdown <= 0) {
+        if (this.decayPPUDataBusCountdown > 0) {
+            this.decayPPUDataBusCountdown--;
+            if (this.decayPPUDataBusCountdown <= 0) {
                 this.dataBus = 0;
             }
         }
@@ -798,7 +798,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                         }
 
                         if (i == 0 && this.sprite0OnThisScanline && pixelColor != 0 && spriteColor != 0 && this.dotNumber != 256) {
-                            this.setSprite0HItSignal.trigger(6, 0);
+                            this.signalDispatcher.trigger(this.setSprite0HItSignalId, 6, 0);
                         }
 
                         if (!foundOpaqueSpritePixel && spriteColor != 0) {

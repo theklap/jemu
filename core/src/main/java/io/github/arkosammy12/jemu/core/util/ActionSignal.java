@@ -19,7 +19,7 @@ public final class ActionSignal {
     }
 
     public void trigger(int delay, int value) {
-        long fireAt = this.ticks + delay;
+        long fireAt = this.ticks + (long) delay;
         this.timers.enqueue(fireAt);
         this.pendingValues.put(fireAt, value);
     }
