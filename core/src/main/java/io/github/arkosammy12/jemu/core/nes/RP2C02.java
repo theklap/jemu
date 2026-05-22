@@ -231,7 +231,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
     private final ActionSignal copyTtoVSignal;
     private final ActionSignal toggleRenderingSignal;
-    private final ActionSignal clearVblOnPpuStatusReadSignal;
+    private final ActionSignal clearVisibleVblOnPpuStatusReadSignal;
+    private final ActionSignal clearInternalVblOnPpuStatusReadSignal;
     private final ActionSignal setSprite0HItSignal;
     private final ActionSignal refreshSpriteShiftersSignal;
     // TODO: Use an action signal triggered at dot 339 of the last scanline of odd frames to signal the skipping of a dot for NTSC
@@ -292,8 +293,10 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
         this.copyTtoVSignal = new ActionSignal(_ -> this.setV(this.getT()));
         this.toggleRenderingSignal = new ActionSignal(_ -> this.isRendering = !this.isRendering);
-        this.clearVblOnPpuStatusReadSignal = new ActionSignal(_ -> {
+        this.clearVisibleVblOnPpuStatusReadSignal = new ActionSignal(_ -> {
             this.setVBlankFlag(false);
+        });
+        this.clearInternalVblOnPpuStatusReadSignal = new ActionSignal(_ -> {
             this.vBlankFlagForNMI = false;
         });
         this.setSprite0HItSignal = new ActionSignal(_ -> {
@@ -352,7 +355,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 // VBL flag is continuously reset during the read window of PPUSTATUS, between 1.0 and 1.5 dots
                 this.setVBlankFlag(false);
                 this.vBlankFlagForNMI = false;
-                this.clearVblOnPpuStatusReadSignal.trigger(2, 0);
+                this.clearVisibleVblOnPpuStatusReadSignal.trigger(2, 0);
                 this.clearW();
                 int ret = (value & 0b11100000) | (this.dataBus & 0b00011111);
                 this.setDataBus(ret);
@@ -556,7 +559,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
         this.copyTtoVSignal.tick();
         this.toggleRenderingSignal.tick();
-        this.clearVblOnPpuStatusReadSignal.tick();
+        this.clearVisibleVblOnPpuStatusReadSignal.tick();
+        this.clearInternalVblOnPpuStatusReadSignal.tick();
         this.setSprite0HItSignal.tick();
         this.emulator.getCartridge().onPPUHalfDot();
 
