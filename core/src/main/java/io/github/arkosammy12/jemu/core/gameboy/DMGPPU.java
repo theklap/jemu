@@ -855,7 +855,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     }
 
     private void setLyEqualsLycFlag() {
-        this.ppuStatus = Processor.setBit(this.ppuStatus, 0b100);
+        this.ppuStatus |= 0b100;
     }
 
     private void clearLyEqualsLycFlag() {
