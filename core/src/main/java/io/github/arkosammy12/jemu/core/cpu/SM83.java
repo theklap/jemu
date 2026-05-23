@@ -1813,7 +1813,7 @@ public class SM83<S extends SM83.SystemBus> implements Processor {
                 }
             }
             case 3 -> {
-                if (z == 6) {
+                if (z == 6) { // SET y, (HL)
                     switch (machineCycleIndex) {
                         case 0 -> {
                             setZ(systemBus.getBus().readByte(getHL()));
