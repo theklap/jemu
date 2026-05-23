@@ -1,8 +1,9 @@
-package io.github.arkosammy12.jemu.frontend.gui.swing.menus;
+package io.github.arkosammy12.jemu.frontend.gui.internal.menus;
 
 import com.formdev.flatlaf.util.SystemInfo;
 import io.github.arkosammy12.jemu.frontend.gui.swing.MainWindow;
 import io.github.arkosammy12.jemu.frontend.gui.swing.MenuBarMenu;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.HelpManager;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -10,7 +11,7 @@ import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.net.URI;
 
-public class HelpMenu extends MenuBarMenu {
+public class HelpMenu extends MenuBarMenu implements HelpManager {
 
     @NotNull
     private String projectName = "unknown";
@@ -94,6 +95,7 @@ public class HelpMenu extends MenuBarMenu {
 
     }
 
+    @Override
     public void setProjectName(@NotNull String projectName) {
         this.projectName = projectName;
     }
@@ -102,26 +104,32 @@ public class HelpMenu extends MenuBarMenu {
         return this.projectName;
     }
 
+    @Override
     public void setAuthorString(@NotNull String authorString) {
         this.authorString = authorString;
     }
 
+    @Override
     public void setVersionString(@NotNull String versionString) {
         this.versionString = versionString;
     }
 
+    @Override
     public void setCommitIDString(@NotNull String commitIdString) {
         this.commitIDString = commitIdString;
     }
 
+    @Override
     public void setBuildDateString(@NotNull String buildDateString) {
         this.buildDateString = buildDateString;
     }
 
+    @Override
     public void setProjectSourceLink(@NotNull String projectSourceLink) {
         this.projectSourceLink = projectSourceLink;
     }
 
+    @Override
     public void setProjectBugReportLink(@NotNull String projectBugReportLink) {
         this.projectBugReportLink = projectBugReportLink;
     }

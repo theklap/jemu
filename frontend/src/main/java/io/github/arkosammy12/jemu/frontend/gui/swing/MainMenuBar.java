@@ -1,9 +1,9 @@
 package io.github.arkosammy12.jemu.frontend.gui.swing;
 
-import io.github.arkosammy12.jemu.frontend.gui.swing.menus.EmulatorMenu;
-import io.github.arkosammy12.jemu.frontend.gui.swing.menus.FileMenu;
-import io.github.arkosammy12.jemu.frontend.gui.swing.menus.HelpMenu;
-import io.github.arkosammy12.jemu.frontend.gui.swing.menus.SettingsMenu;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.EmulatorMenu;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.FileMenu;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.HelpMenu;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.SettingsMenu;
 
 import javax.swing.*;
 

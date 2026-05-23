@@ -8,6 +8,10 @@ import io.github.arkosammy12.jemu.frontend.gui.internal.commands.*;
 import io.github.arkosammy12.jemu.frontend.gui.internal.events.InternalEvent;
 import io.github.arkosammy12.jemu.frontend.gui.swing.commands.*;
 import io.github.arkosammy12.jemu.frontend.gui.swing.events.Event;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.EmulatorMenu;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.FileMenu;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.HelpMenu;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.SettingsMenu;
 import net.miginfocom.layout.AC;
 import net.miginfocom.layout.CC;
 import net.miginfocom.layout.LC;
@@ -50,8 +54,6 @@ public class MainWindow implements Closeable {
 
     @Nullable
     private TitleManager titleManager;
-
-    private final CC infoBarConstraints = new CC().grow().pushX().dockSouth().height("18!");
 
     private final BlockingQueue<EmulatorCommand> emulatorCommandQueue = new LinkedBlockingDeque<>();
     private final BlockingQueue<Event> eventQueue = new LinkedBlockingDeque<>();
@@ -216,8 +218,20 @@ public class MainWindow implements Closeable {
         return Objects.requireNonNull(this.systemViewport);
     }
 
-    public MainMenuBar getMainMenuBar() {
-        return Objects.requireNonNull(this.menuBar);
+    public FileMenu getFileManager() {
+        return this.getMainMenuBar().getFileMenu();
+    }
+
+    public EmulatorMenu getEmulatorManager() {
+        return this.getMainMenuBar().getEmulatorMenu();
+    }
+
+    public SettingsMenu getSettingsManager() {
+        return this.getMainMenuBar().getSettingsMenu();
+    }
+
+    public HelpMenu getHelpManager() {
+        return this.getMainMenuBar().getHelpMenu();
     }
 
     public TitleManager getTitleManager() {
@@ -322,6 +336,11 @@ public class MainWindow implements Closeable {
     @ApiStatus.Internal
     public void registerSettingProperty(SerializedEntry serializedEntry) {
         this.settingProperties.add(new PropertyEntry(serializedEntry.key(), serializedEntry.serializer(), serializedEntry.deserializer()));
+    }
+
+    @ApiStatus.Internal
+    public MainMenuBar getMainMenuBar() {
+        return Objects.requireNonNull(this.menuBar);
     }
 
     @Override

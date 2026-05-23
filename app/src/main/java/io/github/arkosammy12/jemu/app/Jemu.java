@@ -10,10 +10,10 @@ import io.github.arkosammy12.jemu.frontend.gui.swing.commands.*;
 import io.github.arkosammy12.jemu.frontend.gui.swing.events.Event;
 import io.github.arkosammy12.jemu.frontend.gui.swing.events.MuteEvent;
 import io.github.arkosammy12.jemu.frontend.gui.swing.events.VolumeChangedEvent;
-import io.github.arkosammy12.jemu.frontend.gui.swing.menus.HelpMenu;
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import io.github.arkosammy12.jemu.frontend.audio.AudioRenderer;
 import io.github.arkosammy12.jemu.frontend.gui.swing.MainWindow;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.HelpManager;
 import net.harawata.appdirs.AppDirsFactory;
 import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
@@ -67,14 +67,14 @@ public final class Jemu {
                 }
             });
 
-            HelpMenu helpMenu = this.mainWindow.getMainMenuBar().getHelpMenu();
-            helpMenu.setProjectName(MavenProperties.ARTIFACT_ID);
-            helpMenu.setAuthorString(MavenProperties.AUTHOR);
-            helpMenu.setVersionString(MavenProperties.VERSION);
-            helpMenu.setCommitIDString(Version.COMMIT_ID);
-            helpMenu.setBuildDateString(MavenProperties.BUILD_DATE);
-            helpMenu.setProjectSourceLink("https://github.com/ArkoSammy12/jemu");
-            helpMenu.setProjectBugReportLink("https://github.com/ArkoSammy12/jemu/issues");
+            HelpManager helpManager = this.mainWindow.getHelpManager();
+            helpManager.setProjectName(MavenProperties.ARTIFACT_ID);
+            helpManager.setAuthorString(MavenProperties.AUTHOR);
+            helpManager.setVersionString(MavenProperties.VERSION);
+            helpManager.setCommitIDString(Version.COMMIT_ID);
+            helpManager.setBuildDateString(MavenProperties.BUILD_DATE);
+            helpManager.setProjectSourceLink("https://github.com/ArkoSammy12/jemu");
+            helpManager.setProjectBugReportLink("https://github.com/ArkoSammy12/jemu/issues");
 
             this.emulatorThread = new Thread(this::emulatorLoop, "jemu-emulator-thread");
             this.uiEventListenerThread = new Thread(this::eventListenerLoop, "jemu-event-listener-thread");
@@ -83,8 +83,8 @@ public final class Jemu {
 
             if (cliArgs != null) {
                 Optional<System> system = cliArgs.getSystem();
-                this.mainWindow.getMainMenuBar().getFileMenu().loadFile(cliArgs.getRomPath(), system.isPresent());
-                system.ifPresent(s -> this.mainWindow.getMainMenuBar().getEmulatorMenu().setCurrentSystemDescriptor(s));
+                this.mainWindow.getFileManager().loadFile(cliArgs.getRomPath(), system.isPresent());
+                system.ifPresent(s -> this.mainWindow.getEmulatorManager().setCurrentSystemDescriptor(s));
             }
         } catch (Exception e) {
             if (this.mainWindow != null) {
@@ -249,7 +249,7 @@ public final class Jemu {
 
             @Override
             public Optional<Path> getRomPath() {
-                return mainWindow.getMainMenuBar().getFileMenu().getSelectedRomPath();
+                return mainWindow.getFileManager().getSelectedRomPath();
             }
 
             @Override
@@ -279,8 +279,8 @@ public final class Jemu {
         // TODO: Do not require a ROM to be selected to initialize it
         this.currentSystem = System.getSystemAdapter(this, initializer);
         this.getCurrentAudioRenderer().ifPresent(audioRenderer -> {
-            audioRenderer.setMuted(this.mainWindow.getMainMenuBar().getSettingsMenu().getMuted());
-            audioRenderer.setVolume(this.mainWindow.getMainMenuBar().getSettingsMenu().getVolume());
+            audioRenderer.setMuted(this.mainWindow.getSettingsManager().getMuted());
+            audioRenderer.setVolume(this.mainWindow.getSettingsManager().getVolume());
         });
     }
 
@@ -307,8 +307,6 @@ public final class Jemu {
         if (this.mainWindow != null) {
             this.mainWindow.close();
         }
-        //this.notifyShutdownListeners();
-        //this.dataManager.save();
     }
 
     private enum State {

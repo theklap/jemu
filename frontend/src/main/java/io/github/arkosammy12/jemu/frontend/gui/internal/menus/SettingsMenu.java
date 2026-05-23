@@ -1,10 +1,11 @@
-package io.github.arkosammy12.jemu.frontend.gui.swing.menus;
+package io.github.arkosammy12.jemu.frontend.gui.internal.menus;
 
 import io.github.arkosammy12.jemu.frontend.gui.internal.SerializedEntry;
 import io.github.arkosammy12.jemu.frontend.gui.internal.events.InternalMuteEvent;
 import io.github.arkosammy12.jemu.frontend.gui.internal.events.InternalVolumeChangedEvent;
 import io.github.arkosammy12.jemu.frontend.gui.swing.MainWindow;
 import io.github.arkosammy12.jemu.frontend.gui.swing.MenuBarMenu;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.SettingsManager;
 
 import javax.swing.*;
 import java.awt.event.InputEvent;
@@ -12,7 +13,7 @@ import java.awt.event.KeyEvent;
 
 import static io.github.arkosammy12.jemu.frontend.gui.swing.MainWindow.tryParseInt;
 
-public class SettingsMenu extends MenuBarMenu {
+public class SettingsMenu extends MenuBarMenu implements SettingsManager {
 
     private final JSlider volumeSlider;
     private final JRadioButtonMenuItem muteButton;
@@ -63,10 +64,12 @@ public class SettingsMenu extends MenuBarMenu {
 
     }
 
+    @Override
     public int getVolume() {
         return this.volume;
     }
 
+    @Override
     public boolean getMuted() {
         return this.muted;
     }
