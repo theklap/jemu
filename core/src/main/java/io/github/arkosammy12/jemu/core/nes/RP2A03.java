@@ -34,7 +34,7 @@ public class RP2A03<E extends NESEmulator> implements Bus {
     public static final int JOY2_ADDR = 0x4017;
 
     private final E emulator;
-    private final NES6502 cpu;
+    protected final NES6502 cpu;
     private final NESAPU<?> apu;
     private final NESController<?> controller;
 
@@ -208,53 +208,55 @@ public class RP2A03<E extends NESEmulator> implements Bus {
             this.apu.writeByte(address, value);
         } else if (address == OAMDMA_ADDR) {
             this.oamDmaSourceAddressHighByte = value & 0xFF;
-            this.oamDmaTransferredBytes = 0;
+            this.startOAMDMA();
         } else if (address == JOY1_ADDR) {
             this.controller.writeJoy1(value);
         }
     }
 
     public void cycleHalf() {
-		boolean isHalted = this.cpu.isHalted();
-
 		switch (this.cpu.getHalfCyclePhase()) {
 			case PHI_1 -> this.cpu.cycle();
-			case PHI_2 -> {
-				this.cpu.cycle();
-
-                if (this.dmcDmaHaltOnly) {
-                    this.dmcDmaHaltOnly = false;
-                    this.dmcDmaRequestPending = false;
-                    this.dmcDmaStartStep = DmcDmaStep.DUMMY;
-					 this.dmcDmaType = NESAPU.DmcDmaType.RELOAD;
-                }
-
-				this.controller.cycle();
-                this.emulator.getCartridge().cycle();
-
-				if (this.scheduleDmcDmaHaltCountdown > 0) {
-					this.scheduleDmcDmaHaltCountdown--;
-
-                    // TODO: On the RP2A07 (PAL), it waits until the fetch cycle of the 6502 via the SYNC pin
-					if (this.scheduleDmcDmaHaltCountdown <= 0) {
-						// If the start of DMC DMA coincides with the second-to-last or last OAM DMA GET, delay the former by an extra cycle
-						if (this.apuHalfCycleType == APUHalfCycleType.GET && this.oamDmaCurrentData < 0 && (this.oamDmaTransferredBytes == 254 || this.oamDmaTransferredBytes == 255)) {
-							this.scheduleDmcDmaHaltCountdown = 1;
-						} else {
-							this.startDmcDma();
-						}
-					}
-				}
-
-				this.apu.cycleHalf();
-				this.cycleDma(isHalted);
-
-				this.apuHalfCycleType = this.apuHalfCycleType.getOpposite();
-			}
+			case PHI_2 -> this.onCPUPHI2();
 		}
 	}
 
-    private void startDmcDma() {
+    protected void onCPUPHI2() {
+        boolean isHalted = this.cpu.isHalted();
+
+        this.cpu.cycle();
+
+        if (this.dmcDmaHaltOnly) {
+            this.dmcDmaHaltOnly = false;
+            this.dmcDmaRequestPending = false;
+            this.dmcDmaStartStep = DmcDmaStep.DUMMY;
+            this.dmcDmaType = NESAPU.DmcDmaType.RELOAD;
+        }
+
+        this.controller.cycle();
+        this.emulator.getCartridge().cycle();
+
+        if (this.scheduleDmcDmaHaltCountdown > 0) {
+            this.scheduleDmcDmaHaltCountdown--;
+
+            // TODO: On the RP2A07 (PAL), it waits until the fetch cycle of the 6502 via the SYNC pin
+            if (this.scheduleDmcDmaHaltCountdown <= 0) {
+                // If the start of DMC DMA coincides with the second-to-last or last OAM DMA GET, delay the former by an extra cycle
+                if (this.apuHalfCycleType == APUHalfCycleType.GET && this.oamDmaCurrentData < 0 && (this.oamDmaTransferredBytes == 254 || this.oamDmaTransferredBytes == 255)) {
+                    this.scheduleDmcDmaHaltCountdown = 1;
+                } else {
+                    this.startDMCDMA();
+                }
+            }
+        }
+
+        this.apu.cycleHalf();
+        this.cycleDma(isHalted);
+
+        this.apuHalfCycleType = this.apuHalfCycleType.getOpposite();
+    }
+
+    protected void startDMCDMA() {
 		this.scheduleDmcDmaHaltCountdown = 0;
 
         if (this.dmcDmaStartStep == DmcDmaStep.NONE) {
@@ -265,6 +267,10 @@ public class RP2A03<E extends NESEmulator> implements Bus {
 
         this.dmcDmaStartStep = DmcDmaStep.DUMMY;
 	}
+
+    protected void startOAMDMA() {
+        this.oamDmaTransferredBytes = 0;
+    }
 
     private void cycleDma(boolean isHalted) {
         if (!isHalted || (this.oamDmaTransferredBytes >= 256 && this.dmcDmaStep == DmcDmaStep.NONE)) {

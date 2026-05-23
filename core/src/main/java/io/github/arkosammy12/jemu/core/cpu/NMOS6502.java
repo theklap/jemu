@@ -17,6 +17,8 @@ public abstract class NMOS6502 implements Processor {
     private static final int Z_MASK = 1 << 1;
     private static final int C_MASK = 1;
 
+    protected static final int TERMINATE_INSTRUCTION = -1;
+
     protected final SystemBus systemBus;
 
     private int programCounter; // PC, 16 bits
@@ -26,12 +28,10 @@ public abstract class NMOS6502 implements Processor {
     private int processorStatus = M_MASK; // P, 8 bit
     private int stackPointer; // S, 8 bits
 
-    private int instructionRegister; // 8 bits
+    // Initialize to a negative value to force the first cycle to fetch only
+    private int instructionRegister = -1; // 8 bits
 
-    protected static final int TERMINATE_INSTRUCTION = -1;
-
-    protected int subCycleIndex = TERMINATE_INSTRUCTION;
-    private boolean firstSubCycle = true;
+    protected int subCycleIndex;
     private int operand;
     private int address;
     private int pointer;
@@ -43,7 +43,7 @@ public abstract class NMOS6502 implements Processor {
 
     private Phase phase = Phase.PHI_1;
     private ReadWriteCycle readWriteCycle = ReadWriteCycle.READ;
-    protected boolean cpuHalted;
+    protected boolean isHalted;
     private int lastAddress;
     private boolean sync;
 
@@ -328,7 +328,6 @@ public abstract class NMOS6502 implements Processor {
 
     @Override
     public int cycle() {
-
         int originalSubCycleIndex = this.subCycleIndex;
         int originalInstructionRegister = this.getIR();
         boolean originalDisablePCWrites = this.disablePCWrites;
@@ -336,16 +335,7 @@ public abstract class NMOS6502 implements Processor {
         int originalBrkVector = this.brkVector;
         boolean originalPushB = this.pushB;
 
-        boolean halted = this.cpuHalted;
-
-        if (this.firstSubCycle) {
-            this.firstSubCycle = false;
-            onFetchCyclePHI1();
-            this.onSubCycleEnd(originalSubCycleIndex, originalInstructionRegister, originalDisablePCWrites, originalBrkSource, originalBrkVector, originalPushB);
-            return 0;
-        }
-
-        if (halted) {
+        if (this.isHalted) {
             // Repeat the last read cycle on each PHI2
              if (this.phase == Phase.PHI_2) {
                  if (this.subCycleIndex >= 0) {
@@ -395,7 +385,7 @@ public abstract class NMOS6502 implements Processor {
                 if (this.syncOnThisPHI1) {
                     this.syncOnThisPHI1 = false;
                     this.sync = true;
-                } else if (!this.cpuHalted) {
+                } else if (!this.isHalted) {
                     this.sync = false;
                 }
             }
@@ -405,8 +395,8 @@ public abstract class NMOS6502 implements Processor {
                     this.nmiEdgeLatch = true;
                 }
                 this.oldNMI = currentNMI;
-                this.cpuHalted = systemBus.getRDY() && this.readWriteCycle == ReadWriteCycle.READ;
-                if (this.cpuHalted) {
+                this.isHalted = systemBus.getRDY() && this.readWriteCycle == ReadWriteCycle.READ;
+                if (this.isHalted) {
                     setIR(originalInstructionRegister);
                     this.subCycleIndex = originalSubCycleIndex;
                     this.disablePCWrites = originalDisablePCWrites;
@@ -440,6 +430,10 @@ public abstract class NMOS6502 implements Processor {
 
     private void execute() {
         int IR = getIR();
+        if (IR < 0) {
+            this.subCycleIndex = this.phase == Phase.PHI_2 ? TERMINATE_INSTRUCTION : 0;
+            return;
+        }
         switch (IR & 0xF0) {
             case 0x00 -> execute0X(IR & 0xF);
             case 0x10 -> execute1X(IR & 0xF);
@@ -9877,197 +9871,6 @@ public abstract class NMOS6502 implements Processor {
         }
     }
 
-    private void slo() {
-        setFC((getOperand() & 0x80) != 0);
-        setOperand(getOperand() << 1);
-        ora();
-    }
-
-    private void ora() {
-        int result = (getA() | getOperand()) & 0xFF;
-        setA(result);
-        setFN((result & 0x80) != 0);
-        setFZ(result == 0);
-    }
-
-    private void asl() {
-        setFC((getOperand() & 0x80) != 0);
-        setOperand(getOperand() << 1);
-        setFN((getOperand() & 0x80) != 0);
-        setFZ(getOperand() == 0);
-    }
-
-    private void and() {
-        int result = (getA() & getOperand()) & 0xFF;
-        setA(result);
-        setFN((result & 0x80) != 0);
-        setFZ(result == 0);
-    }
-
-    private void rla() {
-        boolean originalHighBit = (getOperand() & 0x80) != 0;
-        setOperand((getOperand() << 1) | (getFC() ? 1 : 0));
-        int result = (getA() & getOperand()) & 0xFF;
-        setA(result);
-        setFC(originalHighBit);
-        setFN((result & 0x80) != 0);
-        setFZ(result == 0);
-    }
-
-    private void bit() {
-        setFV((getOperand() & (1 << 6)) != 0);
-        setFN((getOperand() & (1 << 7)) != 0);
-        setFZ((getOperand() & getA()) == 0);
-    }
-
-    private void rol() {
-        boolean originalHighBit = (getOperand() & 0x80) != 0;
-        setOperand((getOperand() << 1) | (getFC() ? 1 : 0));
-        setFC(originalHighBit);
-        setFN((getOperand() & 0x80) != 0);
-        setFZ(getOperand() == 0);
-    }
-
-    private void eor() {
-        int result = (getA() ^ getOperand()) & 0xFF;
-        setA(result);
-        setFN((result & 0x80) != 0);
-        setFZ(result == 0);
-    }
-
-    private void sre() {
-        setOperand(getOperand() >>> 1);
-        eor();
-    }
-
-    private void lsr() {
-        setOperand(getOperand() >>> 1);
-        setFN((getOperand() & 0x80) != 0);
-        setFZ(getOperand() == 0);
-    }
-
-    private void rra() {
-        int temp = getFC() ? 0x80 : 0x00;
-        setFC((getOperand() & 1) != 0);
-        setOperand((getOperand() >>> 1) | temp);
-        adc();
-    }
-
-    private void ror() {
-        int temp = getFC() ? 0x80 : 0x00;
-        setFC((getOperand() & 1) != 0);
-        setOperand((getOperand() >>> 1) | temp);
-        setFN((getOperand() & 0x80) != 0);
-        setFZ(getOperand() == 0);
-    }
-
-    private void lda() {
-        setA(getOperand());
-        setFN((getA() & 0x80) != 0);
-        setFZ(getA() == 0);
-    }
-
-    private void ldx() {
-        setX(getOperand());
-        setFN((getX() & 0x80) != 0);
-        setFZ(getX() == 0);
-    }
-
-    private void lax() {
-        setA(getOperand());
-        setX(getOperand());
-        setFN((getA() & 0x80) != 0);
-        setFZ(getA() == 0);
-    }
-
-    private void ldy() {
-        setY(getOperand());
-        setFN((getY() & 0x80) != 0);
-        setFZ(getY() == 0);
-    }
-
-    private void cpx() {
-        setFC(getX() >= getOperand());
-        setFN(((getX() - getOperand()) & 0x80) != 0);
-        setFZ(getX() == getOperand());
-    }
-
-    private void cpy() {
-        setFC(getY() >= getOperand());
-        setFN(((getY() - getOperand()) & 0x80) != 0);
-        setFZ(getY() == getOperand());
-    }
-
-    private void cmp() {
-        setFC(getA() >= getOperand());
-        setFN(((getA() - getOperand()) & 0x80) != 0);
-        setFZ(getA() == getOperand());
-    }
-
-    private void dcp() {
-        setOperand(getOperand() - 1);
-        cmp();
-    }
-
-    private void isc() {
-        setOperand(getOperand() + 1);
-        sbc();
-    }
-
-    private void inc() {
-        setOperand(getOperand() + 1);
-        setFN((getOperand() & 0x80) != 0);
-        setFZ(getOperand() == 0);
-    }
-
-    private void dec() {
-        setOperand(getOperand() - 1);
-        setFN((getOperand() & 0x80) != 0);
-        setFZ(getOperand() == 0);
-    }
-
-    private void adc() {
-        addOrSubCarry(getOperand());
-    }
-
-    private void sbc() {
-        addOrSubCarry(getOperand() ^ 0xFF);
-    }
-
-    protected void addOrSubCarry(int operand) {
-        int a = getA();
-        int c = getFC() ? 1 : 0;
-
-        int binarySum = a + operand + c;
-        setFV(((~(a ^ operand)) & (a ^ binarySum) & 0x80) != 0);
-
-        int result;
-
-        if (getFD()) {
-            int lo = (a & 0x0F) + (operand & 0x0F) + c;
-            int hi = (a & 0xF0) + (operand & 0xF0);
-            if (lo > 9) {
-                lo += 6;
-            }
-            if (lo > 0x0F) {
-                hi += 0x10;
-            }
-            if ((hi & 0x1F0) > 0x90) {
-                hi += 0x60;
-            }
-            result = (lo & 0x0F) | (hi & 0xF0);
-            setFC(hi > 0xF0);
-        } else {
-            result = binarySum;
-            setFC(binarySum > 0xFF);
-        }
-
-        result &= 0xFF;
-        setA(result);
-        setFZ(result == 0);
-        setFN((result & 0x80) != 0);
-    }
-
     private void jam() {
         switch (subCycleIndex) {
             case 0 -> {
@@ -10322,6 +10125,197 @@ public abstract class NMOS6502 implements Processor {
                 subCycleIndex = TERMINATE_INSTRUCTION;
             }
         }
+    }
+
+    private void slo() {
+        setFC((getOperand() & 0x80) != 0);
+        setOperand(getOperand() << 1);
+        ora();
+    }
+
+    private void ora() {
+        int result = (getA() | getOperand()) & 0xFF;
+        setA(result);
+        setFN((result & 0x80) != 0);
+        setFZ(result == 0);
+    }
+
+    private void asl() {
+        setFC((getOperand() & 0x80) != 0);
+        setOperand(getOperand() << 1);
+        setFN((getOperand() & 0x80) != 0);
+        setFZ(getOperand() == 0);
+    }
+
+    private void and() {
+        int result = (getA() & getOperand()) & 0xFF;
+        setA(result);
+        setFN((result & 0x80) != 0);
+        setFZ(result == 0);
+    }
+
+    private void rla() {
+        boolean originalHighBit = (getOperand() & 0x80) != 0;
+        setOperand((getOperand() << 1) | (getFC() ? 1 : 0));
+        int result = (getA() & getOperand()) & 0xFF;
+        setA(result);
+        setFC(originalHighBit);
+        setFN((result & 0x80) != 0);
+        setFZ(result == 0);
+    }
+
+    private void bit() {
+        setFV((getOperand() & (1 << 6)) != 0);
+        setFN((getOperand() & (1 << 7)) != 0);
+        setFZ((getOperand() & getA()) == 0);
+    }
+
+    private void rol() {
+        boolean originalHighBit = (getOperand() & 0x80) != 0;
+        setOperand((getOperand() << 1) | (getFC() ? 1 : 0));
+        setFC(originalHighBit);
+        setFN((getOperand() & 0x80) != 0);
+        setFZ(getOperand() == 0);
+    }
+
+    private void eor() {
+        int result = (getA() ^ getOperand()) & 0xFF;
+        setA(result);
+        setFN((result & 0x80) != 0);
+        setFZ(result == 0);
+    }
+
+    private void sre() {
+        setOperand(getOperand() >>> 1);
+        eor();
+    }
+
+    private void lsr() {
+        setOperand(getOperand() >>> 1);
+        setFN((getOperand() & 0x80) != 0);
+        setFZ(getOperand() == 0);
+    }
+
+    private void rra() {
+        int temp = getFC() ? 0x80 : 0x00;
+        setFC((getOperand() & 1) != 0);
+        setOperand((getOperand() >>> 1) | temp);
+        adc();
+    }
+
+    private void ror() {
+        int temp = getFC() ? 0x80 : 0x00;
+        setFC((getOperand() & 1) != 0);
+        setOperand((getOperand() >>> 1) | temp);
+        setFN((getOperand() & 0x80) != 0);
+        setFZ(getOperand() == 0);
+    }
+
+    private void lda() {
+        setA(getOperand());
+        setFN((getA() & 0x80) != 0);
+        setFZ(getA() == 0);
+    }
+
+    private void ldx() {
+        setX(getOperand());
+        setFN((getX() & 0x80) != 0);
+        setFZ(getX() == 0);
+    }
+
+    private void lax() {
+        setA(getOperand());
+        setX(getOperand());
+        setFN((getA() & 0x80) != 0);
+        setFZ(getA() == 0);
+    }
+
+    private void ldy() {
+        setY(getOperand());
+        setFN((getY() & 0x80) != 0);
+        setFZ(getY() == 0);
+    }
+
+    private void cpx() {
+        setFC(getX() >= getOperand());
+        setFN(((getX() - getOperand()) & 0x80) != 0);
+        setFZ(getX() == getOperand());
+    }
+
+    private void cpy() {
+        setFC(getY() >= getOperand());
+        setFN(((getY() - getOperand()) & 0x80) != 0);
+        setFZ(getY() == getOperand());
+    }
+
+    private void cmp() {
+        setFC(getA() >= getOperand());
+        setFN(((getA() - getOperand()) & 0x80) != 0);
+        setFZ(getA() == getOperand());
+    }
+
+    private void dcp() {
+        setOperand(getOperand() - 1);
+        cmp();
+    }
+
+    private void isc() {
+        setOperand(getOperand() + 1);
+        sbc();
+    }
+
+    private void inc() {
+        setOperand(getOperand() + 1);
+        setFN((getOperand() & 0x80) != 0);
+        setFZ(getOperand() == 0);
+    }
+
+    private void dec() {
+        setOperand(getOperand() - 1);
+        setFN((getOperand() & 0x80) != 0);
+        setFZ(getOperand() == 0);
+    }
+
+    private void adc() {
+        addOrSubCarry(getOperand());
+    }
+
+    private void sbc() {
+        addOrSubCarry(getOperand() ^ 0xFF);
+    }
+
+    protected void addOrSubCarry(int operand) {
+        int a = getA();
+        int c = getFC() ? 1 : 0;
+
+        int binarySum = a + operand + c;
+        setFV(((~(a ^ operand)) & (a ^ binarySum) & 0x80) != 0);
+
+        int result;
+
+        if (getFD()) {
+            int lo = (a & 0x0F) + (operand & 0x0F) + c;
+            int hi = (a & 0xF0) + (operand & 0xF0);
+            if (lo > 9) {
+                lo += 6;
+            }
+            if (lo > 0x0F) {
+                hi += 0x10;
+            }
+            if ((hi & 0x1F0) > 0x90) {
+                hi += 0x60;
+            }
+            result = (lo & 0x0F) | (hi & 0xF0);
+            setFC(hi > 0xF0);
+        } else {
+            result = binarySum;
+            setFC(binarySum > 0xFF);
+        }
+
+        result &= 0xFF;
+        setA(result);
+        setFZ(result == 0);
+        setFN((result & 0x80) != 0);
     }
 
     protected int readByte(int address) {
