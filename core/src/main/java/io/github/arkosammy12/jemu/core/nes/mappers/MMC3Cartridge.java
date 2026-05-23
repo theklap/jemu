@@ -193,7 +193,11 @@ public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
     @Override
     public void cycle() {
         if ((this.previousPPUAddress & A12) == 0) {
-            this.cyclesDown++;
+            // Cap the cyclesDown counter to 10, since we just care that it is at least 4 when clocking the scanline counter.
+            // This way we prevent a potential integer overflow.
+            if (this.cyclesDown < 10) {
+                this.cyclesDown++;
+            }
         } else {
             this.cyclesDown = 0;
         }
