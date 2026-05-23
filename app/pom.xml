@@ -131,6 +131,7 @@
                     <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
                     <commitIdGenerationMode>full</commitIdGenerationMode>
                     <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                    <dateFormat>yyyy-MM-dd'T'HH:mm:ss</dateFormat>
                 </configuration>
             </plugin>
             <plugin>
