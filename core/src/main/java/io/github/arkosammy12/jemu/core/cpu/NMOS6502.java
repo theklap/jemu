@@ -2,7 +2,7 @@ package io.github.arkosammy12.jemu.core.cpu;
 
 import io.github.arkosammy12.jemu.core.common.Processor;
 
-public class NMOS6502 implements Processor {
+public abstract class NMOS6502 implements Processor {
 
     private static final int RESET_VECTOR = 0xFFFC;
     private static final int NMI_VECTOR = 0xFFFA;
@@ -10324,13 +10324,13 @@ public class NMOS6502 implements Processor {
         }
     }
 
-    private int readByte(int address) {
+    protected int readByte(int address) {
         this.readWriteCycle = ReadWriteCycle.READ;
         this.lastAddress = address;
         return systemBus.getBus().readByte(address);
     }
 
-    private void writeByte(int address, int value) {
+    protected void writeByte(int address, int value) {
         this.readWriteCycle = ReadWriteCycle.WRITE;
         this.lastAddress = address;
         systemBus.getBus().writeByte(address, value);
