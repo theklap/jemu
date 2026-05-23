@@ -12,6 +12,10 @@ import io.github.arkosammy12.jemu.frontend.gui.internal.menus.EmulatorMenu;
 import io.github.arkosammy12.jemu.frontend.gui.internal.menus.FileMenu;
 import io.github.arkosammy12.jemu.frontend.gui.internal.menus.HelpMenu;
 import io.github.arkosammy12.jemu.frontend.gui.internal.menus.SettingsMenu;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.EmulatorManager;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.FileManager;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.HelpManager;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.SettingsManager;
 import net.miginfocom.layout.AC;
 import net.miginfocom.layout.CC;
 import net.miginfocom.layout.LC;
@@ -218,19 +222,19 @@ public class MainWindow implements Closeable {
         return Objects.requireNonNull(this.systemViewport);
     }
 
-    public FileMenu getFileManager() {
+    public FileManager getFileManager() {
         return this.getMainMenuBar().getFileMenu();
     }
 
-    public EmulatorMenu getEmulatorManager() {
+    public EmulatorManager getEmulatorManager() {
         return this.getMainMenuBar().getEmulatorMenu();
     }
 
-    public SettingsMenu getSettingsManager() {
+    public SettingsManager getSettingsManager() {
         return this.getMainMenuBar().getSettingsMenu();
     }
 
-    public HelpMenu getHelpManager() {
+    public HelpManager getHelpManager() {
         return this.getMainMenuBar().getHelpMenu();
     }
 
