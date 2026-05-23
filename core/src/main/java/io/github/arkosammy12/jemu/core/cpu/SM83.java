@@ -1800,7 +1800,7 @@ public class SM83<S extends SM83.SystemBus> implements Processor {
                             machineCycleIndex = 1;
                         }
                         case 1 -> {
-                            systemBus.getBus().writeByte(getHL(), getZ() & (~(1 << 7)));
+                            systemBus.getBus().writeByte(getHL(), getZ() & (~(1 << y)));
                             machineCycleIndex = 2;
                         }
                         case 2 -> {
