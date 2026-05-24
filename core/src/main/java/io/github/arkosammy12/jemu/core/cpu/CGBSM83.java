@@ -37,6 +37,10 @@ public class CGBSM83<S extends CGBSM83.SystemBus> extends SM83<S> {
                             setPC(getPC() + 1);
                             this.systemBus.onStopInstructionWithSpeedSwitch(true);
                             this.mode = Mode.HALTED;
+                            // TODO: Apparently this isn't what happens.
+                            // When a speed switch is performed, the GameBoy Color will wait until the system clock has overflowed to 0,
+                            // then perform the speed switch. The current solution is the one stated by Liji's STOP instruction flowchart,
+                            // which is a good enough approximation for now.
                             this.exitHaltTimer = 32768;
                             machineCycleIndex = 3;
                         }
