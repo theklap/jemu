@@ -22,7 +22,8 @@
     <artifactId>jemu</artifactId>
 
     <!-- Change this for everything else (and in the child submodules too of course) -->
-    <version>0.1.0</version>
+    <!-- Change MacOS version property too! -->
+    <version>0.2.0</version>
     <packaging>pom</packaging>
     <modules>
         <module>core</module>
