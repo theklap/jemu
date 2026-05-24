@@ -1,5 +1,7 @@
 package io.github.arkosammy12.jemu.core.util;
 
+import java.util.Arrays;
+
 public final class ShiftRegister {
 
     private final int[] elements;
@@ -8,10 +10,12 @@ public final class ShiftRegister {
 
     public ShiftRegister(int size, int elementSizeInBits) {
         if (elementSizeInBits < 1) {
-            throw new IllegalArgumentException("Element size in bits cannot be 0 or negative!");
+            throw new IllegalArgumentException("Shift register element size in bits cannot be 0 or negative!");
+        } else if (elementSizeInBits > 32) {
+            throw new IllegalArgumentException("Shift register element size in bits cannot be greater than 32!");
         }
         this.elements = new int[size];
-        this.elementMask = (1 << elementSizeInBits) - 1;
+        this.elementMask = (int) ((1L << elementSizeInBits) - 1);
     }
 
     public int shiftHead(int shiftInTail) {
@@ -34,6 +38,11 @@ public final class ShiftRegister {
 
     public int get(int index) {
         return this.elements[(this.head + index) % this.elements.length];
+    }
+
+    public void clear() {
+        Arrays.fill(this.elements, 0);
+        this.head = 0;
     }
 
 }

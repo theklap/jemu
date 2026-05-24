@@ -1,4 +1,3 @@
-//klap was here
 package io.github.arkosammy12.jemu.core.nes;
 
 import io.github.arkosammy12.jemu.core.common.Bus;
@@ -9,7 +8,6 @@ import io.github.arkosammy12.jemu.core.util.ActionSignalDispatcher;
 import io.github.arkosammy12.jemu.core.util.ShiftRegister;
 
 import java.util.Arrays;
-import java.util.LinkedList;
 
 import static io.github.arkosammy12.jemu.core.nes.NESCPUBus.PPU_END;
 import static io.github.arkosammy12.jemu.core.nes.NESCPUBus.PPU_START;
@@ -409,13 +407,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
         this.setDataBus(value);
 
-        // TODO: Make this into a system-specific setting in the future. Off by default.
-        // Block register writes during the first frame until the vbl, sprite 0 and sprite overflow flags are cleared
-        /*
-        if (this.ppuInit) {
-            return;
-        }
-         */
+        // TODO: Add an opt-in setting to enable the ppuInit functionality to block PPU register writes until dot 1 of the first pre-render scanline
         address = 0x2000 | (address & 7);
         switch (address) {
             case PPUCTRL_ADDR -> {

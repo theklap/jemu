@@ -2,13 +2,12 @@ package io.github.arkosammy12.jemu.core.gameboy;
 
 import io.github.arkosammy12.jemu.core.common.Bus;
 import io.github.arkosammy12.jemu.core.common.VideoGenerator;
-import io.github.arkosammy12.jemu.core.common.Processor;
 import io.github.arkosammy12.jemu.core.cpu.SM83;
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
+import io.github.arkosammy12.jemu.core.util.ShiftRegister;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 
 import java.util.Arrays;
-import java.util.LinkedList;
 
 import static io.github.arkosammy12.jemu.core.gameboy.DMGBus.*;
 
@@ -88,7 +87,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     protected int bgFifoTileDataLow;
     protected int bgFifoTileDataHigh;
 
-    protected final LinkedList<Integer> spriteFifo = new LinkedList<>();
+    protected final ShiftRegister spriteFifo = new ShiftRegister(8, 32);
     protected int spriteFifoCurrentEntryIndex;
     protected int spriteFifoStep = 0;
     protected int spriteFifoCurrentTileNumber;
@@ -106,9 +105,6 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
             Arrays.fill(ints, this.getLcdOffColor());
         }
         Arrays.fill(this.spriteBuffer, null);
-        for (int i = 0; i < 8; i++) {
-            this.spriteFifo.offer(null);
-        }
     }
 
     @Override
@@ -409,9 +405,6 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         Arrays.fill(this.spriteBuffer, null);
 
         this.spriteFifo.clear();
-        for (int i = 0; i < 8; i++) {
-            this.spriteFifo.add(null);
-        }
 
         this.spriteFifoStep = 0;
         this.spriteFifoCurrentEntryIndex = -1;
@@ -727,8 +720,8 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
                         continue;
                     }
 
-                    Integer currentQueuedPixel = this.spriteFifo.get(i);
-                    if (currentQueuedPixel == null || getDmgColorNumberFromObjPixelEntry(currentQueuedPixel) == 0) {
+                    int currentQueuedPixel = this.spriteFifo.get(i);
+                    if (getDmgColorNumberFromObjPixelEntry(currentQueuedPixel) == 0) {
                         this.spriteFifo.set(i, createDmgObjPixelEntry(colorNumber, priority, palette));
                     }
                 }
@@ -762,19 +755,14 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
             finalPixel = null;
         }
 
-        Integer objPixel = this.spriteFifo.poll();
-        this.spriteFifo.offer(null);
-        if (objPixel != null) {
-            int objColorNumber = getDmgColorNumberFromObjPixelEntry(objPixel);
-            if (!this.getObjectEnable()) {
-                objColorNumber = 0;
-            }
-            boolean objPriority = getDmgPriorityForObjPixelEntry(objPixel);
-            boolean objPalette = getDmgPaletteForObjPixelEntry(objPixel);
-            if (objColorNumber != 0 && !(objPriority && bgPixel != 0)) {
-                int objPaletteIndex = ((objPalette ? this.objectPalette1 : this.objectPalette0) >>> (objColorNumber * 2)) & 0b11;
-                finalPixel = DMG_PALETTE[objPaletteIndex];
-            }
+        int objPixel = this.spriteFifo.shiftHead(0);
+        int objColorNumber = getDmgColorNumberFromObjPixelEntry(objPixel);
+        if (!this.getObjectEnable()) {
+            objColorNumber = 0;
+        }
+        if (objColorNumber != 0 && !(getDmgPriorityForObjPixelEntry(objPixel) && bgPixel != 0)) {
+            int objPaletteIndex = ((getDmgPaletteForObjPixelEntry(objPixel) ? this.objectPalette1 : this.objectPalette0) >>> (objColorNumber * 2)) & 0b11;
+            finalPixel = DMG_PALETTE[objPaletteIndex];
         }
 
         // TODO: Emulate color shown in the LCD during CPU STOP mode depending on which mode the STOP mode lands on. Same for CGB
