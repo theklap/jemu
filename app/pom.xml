@@ -110,6 +110,9 @@
                         <option>--enable-native-access=ALL-UNNAMED</option>
                         <option>-XX:+UseZGC</option>
                         <option>-XX:+UseCompactObjectHeaders</option>
+                        <option>-XX:+AlwaysPreTouch</option>
+                        <option>-Xms256m</option>
+                        <option>-Xmx512m</option>
                     </javaOptions>
                 </configuration>
             </plugin>
