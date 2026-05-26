@@ -48,14 +48,14 @@ public class JPanelVideoDriver extends JPanel implements VideoDriver, Closeable 
     }
 
     @Override
-    public void outputFrame(int[][] argb) {
+    public void outputFrame(int[][] rgb) {
         synchronized (this.renderBufferLock) {
             if (this.renderBuffer == null || this.videoGenerator == null) {
                 return;
             }
             for (int y = 0; y < this.videoGenerator.getImageHeight(); y++) {
                 for (int x = 0; x < this.videoGenerator.getImageWidth(); x++) {
-                    this.renderBuffer[x][y] = argb[x][y];
+                    this.renderBuffer[x][y] = rgb[x][y];
                 }
             }
         }
@@ -81,7 +81,7 @@ public class JPanelVideoDriver extends JPanel implements VideoDriver, Closeable 
         }
     }
 
-        private void updateTransformIfNeeded() {
+    private void updateTransformIfNeeded() {
         int w = this.getWidth();
         int h = this.getHeight();
 
