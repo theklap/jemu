@@ -17,7 +17,7 @@ import static io.github.arkosammy12.jemu.core.nes.ines.INESFile.KB_16;
 
 public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
-    private final byte[] programRom;
+    private final byte[] programROM;
     private final byte[] programRAM;
     private final byte[] characterROM;
     private final byte[] characterRAM;
@@ -36,7 +36,7 @@ public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         super(emulator, iNESFile);
 
         byte[] programRomData = iNESFile.getProgramRom();
-        this.programRom = Arrays.copyOf(programRomData, programRomData.length);
+        this.programROM = Arrays.copyOf(programRomData, programRomData.length);
 
         int programRamSize = iNESFile.getProgramRamSize();
         if (iNESFile instanceof NES20File nes20File) {
@@ -112,7 +112,7 @@ public class MMC1Cartridge<E extends NESEmulator> extends NESCartridge<E> {
                 return -1;
             }
         } else if (address >= 0x8000 && address <= 0xFFFF) {
-            return (int) this.programRom[this.mapPrgRomAddress(address) % this.programRom.length] & 0xFF;
+            return (int) this.programROM[this.mapPrgRomAddress(address) % this.programROM.length] & 0xFF;
         } else {
             return -1;
         }
