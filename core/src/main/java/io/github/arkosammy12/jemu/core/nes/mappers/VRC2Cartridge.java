@@ -77,7 +77,7 @@ public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     }
 
-    private int getA0Bit() {
+    protected int getA0Bit() {
         return switch (this.iNESFile.getMapperNumber()) {
             case 23 -> 0;
             case 22, 25 -> 1;
@@ -85,7 +85,7 @@ public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         };
     }
 
-    private int getA1Bit() {
+    protected int getA1Bit() {
         return switch (this.iNESFile.getMapperNumber()) {
             case 23 -> 1;
             case 22, 25 -> 0;
@@ -124,7 +124,7 @@ public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_MIRROR_END) {
             return address & 0xFF;
         } else {
-            throw new EmulatorException("Invalid NES MMC3 cartridge PPU read address $%04X!".formatted(address));
+            throw new EmulatorException("Invalid NES VRC2 cartridge PPU read address $%04X!".formatted(address));
         }
     }
 
@@ -140,7 +140,7 @@ public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_MIRROR_END) {
 
         } else {
-            throw new EmulatorException("Invalid NES MMC3 cartridge PPU write address $%04X!".formatted(address));
+            throw new EmulatorException("Invalid NES VRC2 cartridge PPU write address $%04X!".formatted(address));
         }
     }
 

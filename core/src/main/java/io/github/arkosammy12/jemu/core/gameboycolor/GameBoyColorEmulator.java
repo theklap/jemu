@@ -20,11 +20,13 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
         super(host);
     }
 
+    @Override
     protected CGBSM83<?> createCpu() {
         this.cpu = new CGBSM83<>(this);
         return this.cpu;
     }
 
+    @Override
     public CGBSM83<?> getCpu() {
         return this.cpu;
     }
@@ -51,29 +53,38 @@ public class GameBoyColorEmulator extends GameBoyEmulator implements CGBSM83.Sys
         return this.ppu;
     }
 
+    @Override
     protected CGBAPU<?> createApu() {
         this.apu = new CGBAPU<>(this);
         return this.apu;
     }
 
+    @Override
     public CGBAPU<?> getAudioGenerator() {
         return this.apu;
     }
 
+    @Override
     protected CGBTimerController<?> createTimerController() {
         this.timerController = new CGBTimerController<>(this);
         return this.timerController;
     }
 
+    @Override
     public CGBTimerController<?> getTimerController() {
         return this.timerController;
+    }
+
+    @Override
+    protected CGBSerialController<?> createSerialController() {
+        return new CGBSerialController<>(this);
     }
 
     public CPUSpeed getCPUSpeed() {
         return (this.key1 & 0x80) != 0 ? CPUSpeed.DOUBLE_SPEED : CPUSpeed.SINGLE_SPEED;
     }
 
-    public boolean isDmgCompatibilityMode() {
+    public boolean isDMGCompatibilityMode() {
         return this.dmgCompatibilityMode;
     }
 

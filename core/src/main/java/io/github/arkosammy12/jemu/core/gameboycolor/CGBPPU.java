@@ -138,7 +138,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
 
     @Override
     protected void tickBackgroundFifo() {
-        if (this.emulator.isDmgCompatibilityMode()) {
+        if (this.emulator.isDMGCompatibilityMode()) {
             super.tickBackgroundFifo();
             return;
         }
@@ -230,7 +230,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
 
     @Override
     protected void pushBgPixels() {
-         if (this.emulator.isDmgCompatibilityMode()) {
+         if (this.emulator.isDMGCompatibilityMode()) {
              super.pushBgPixels();
              return;
          }
@@ -254,7 +254,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
     @Override
     @SuppressWarnings("DuplicatedCode")
     protected void tickSpriteFifo() {
-        if (this.emulator.isDmgCompatibilityMode()) {
+        if (this.emulator.isDMGCompatibilityMode()) {
             super.tickSpriteFifo();
             return;
         }
@@ -342,7 +342,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
         int objPixel = this.spriteFifo.shiftHead(0);
 
         Integer finalPixel;
-        if (this.emulator.isDmgCompatibilityMode()) {
+        if (this.emulator.isDMGCompatibilityMode()) {
             if (!this.getBackgroundAndWindowEnable()) {
                 bgPixel = 0;
             }

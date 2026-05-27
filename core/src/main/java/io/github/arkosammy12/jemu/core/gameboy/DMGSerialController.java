@@ -12,16 +12,15 @@ public class DMGSerialController<E extends GameBoyEmulator> implements Bus {
     private static final int BIT_2_MASK = 1 << 2;
     private static final int BIT_7_MASK = 1 << 7;
 
-    private final E emulator;
+    protected final E emulator;
 
-    private int internalClock;
     private boolean oldSerialInput;
 
-    private boolean transferring;
+    protected boolean transferring;
     private int transferredBits;
 
     private int serialData = 0xFF;
-    private int serialControl;
+    protected int serialControl;
 
     public DMGSerialController(E emulator) {
         this.emulator = emulator;
@@ -31,7 +30,7 @@ public class DMGSerialController<E extends GameBoyEmulator> implements Bus {
     public int readByte(int address) {
         return switch (address) {
             case SB_ADDR -> this.serialData;
-            case SC_ADDR -> 0xFF;
+            case SC_ADDR -> (this.serialControl & 0x7F) | (this.transferring ? 1 << 7 : 0) | 0b01111110;
             default -> throw new EmulatorException("Invalid address $%04X for GameBoy serial controller!".formatted(address));
         };
     }
@@ -59,9 +58,7 @@ public class DMGSerialController<E extends GameBoyEmulator> implements Bus {
     }
 
     private void cycleSerial() {
-        this.internalClock = (this.internalClock + 1) & 0xFF;
-
-        boolean frequencyBit = ((this.getClockSpeed() ? BIT_2_MASK : BIT_7_MASK) & this.internalClock) != 0;
+        boolean frequencyBit = ((this.getClockSpeed() ? BIT_2_MASK : BIT_7_MASK) & this.emulator.getTimerController().getSystemClock()) != 0;
         boolean serialInput = frequencyBit && this.getClockSelect();
 
         if (this.oldSerialInput && !serialInput && this.transferring) {
@@ -82,8 +79,8 @@ public class DMGSerialController<E extends GameBoyEmulator> implements Bus {
         return (this.serialControl & (1 << 7)) != 0;
     }
 
-    private boolean getClockSpeed() {
-        return (this.serialControl & (1 << 1)) != 0;
+    protected boolean getClockSpeed() {
+        return false;
     }
 
     private boolean getClockSelect() {
