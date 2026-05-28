@@ -10,8 +10,10 @@ import java.util.Optional;
 
 public class INESFile {
 
-    public static final int KB_8 = 0x2000;
-    public static final int KB_16 = 0x4000;
+    public static final int KB_2 = 0x800;
+    public static final int KB_4 = KB_2 * 2;
+    public static final int KB_8 = KB_4 * 2;
+    public static final int KB_16 = KB_8 * 2;
     public static final int KB_32 = KB_16 * 2;
     public static final int KB_64 = KB_32 * 2;
     public static final int KB_128 = KB_64 * 2;

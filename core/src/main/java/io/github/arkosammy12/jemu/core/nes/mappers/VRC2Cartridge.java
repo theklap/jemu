@@ -18,7 +18,7 @@ import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_START;
 public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     private final byte[] programROM;
-    private final byte[] programRAM;
+    protected final byte[] programRAM;
     private final byte[] characterROM;
     private final byte[] characterRAM;
 
@@ -28,8 +28,8 @@ public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
     private final ToIntBiIntFunction setChrSelectLowFunction;
     private final ToIntBiIntFunction setChrSelectHighFunction;
 
-    private int prgSelect0;
-    private int prgSelect1;
+    protected int prgSelect0;
+    protected int prgSelect1;
     private int chrSelect0;
     private int chrSelect1;
     private int chrSelect2;
@@ -39,7 +39,7 @@ public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
     private int chrSelect6;
     private int chrSelect7;
 
-    private NametableArrangement nametableArrangement = NametableArrangement.HORIZONTAL;
+    protected NametableArrangement nametableArrangement = NametableArrangement.HORIZONTAL;
     private int latch;
 
     public VRC2Cartridge(E emulator, INESFile iNESFile) {
@@ -93,7 +93,7 @@ public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         };
     }
 
-    private ToIntBiIntFunction getSetChrSelectLowFunction() {
+    protected ToIntBiIntFunction getSetChrSelectLowFunction() {
         if (this.iNESFile.getMapperNumber() == 22) {
             return (chrSelect, value) -> (chrSelect & 0b011111000) | ((value >>> 1) & 0b111);
         } else {
@@ -101,7 +101,7 @@ public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         }
     }
 
-    private ToIntBiIntFunction getSetChrSelectHighFunction() {
+    protected ToIntBiIntFunction getSetChrSelectHighFunction() {
         // VRC2 only has 4 high bits of CHR select
         if (this.iNESFile.getMapperNumber() == 22) {
             return (chrSelect, value) -> ((value & 0b01111) << 3) | (chrSelect & 0b000000111);
@@ -225,7 +225,7 @@ public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         }
     }
 
-    private int getRegisterSlot(int address) {
+    protected int getRegisterSlot(int address) {
         return ((address >> this.a0Bit) & 1) | (((address >> this.a1Bit) & 1) << 1);
     }
 
@@ -250,7 +250,7 @@ public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         }
     }
 
-    private int mapPrgRomAddress(int address) {
+    protected int mapPrgRomAddress(int address) {
         address &= 0x7FFF;
         if (address <= 0x1FFF) {
             return (address & 0x1FFF) | (this.prgSelect0 << 13);
@@ -263,7 +263,7 @@ public class VRC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
         }
     }
 
-    private int mapPrgRamAddress(int address) {
+    protected int mapPrgRamAddress(int address) {
         return address & 0x1FFF;
     }
 
