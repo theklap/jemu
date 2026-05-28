@@ -162,8 +162,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
     private static final int PPUADDR_ADDR = 0x2006;
     private static final int PPUDATA_ADDR = 0x2007;
 
-    public static final int CHR_ROM_START = 0x0000;
-    public static final int CHR_ROM_END = 0x1FFF;
+    public static final int CHR_START = 0x0000;
+    public static final int CHR_END = 0x1FFF;
 
     public static final int CIRAM_START = 0x2000;
     public static final int CIRAM_END = 0x2FFF;

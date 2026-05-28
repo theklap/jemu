@@ -41,7 +41,7 @@ public class NROMCartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     @Override
     public int readBytePPU(int address) {
-        if (address >= CHR_ROM_START && address <= CHR_ROM_END) {
+        if (address >= CHR_START && address <= CHR_END) {
             if (this.characterROM == null) {
                 return (int) this.characterRAM[(address & 0x1FFF) % this.characterRAM.length] & 0xFF;
             } else {
@@ -58,7 +58,7 @@ public class NROMCartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     @Override
     public void writeBytePPU(int address, int value) {
-        if (address >= CHR_ROM_START && address <= CHR_ROM_END) {
+        if (address >= CHR_START && address <= CHR_END) {
             if (this.characterRAM != null) {
                 this.characterRAM[(address & 0x1FFF) % this.characterRAM.length] = (byte) value;
             }

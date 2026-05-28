@@ -9,10 +9,8 @@ import io.github.arkosammy12.jemu.core.nes.ines.NES20File;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static io.github.arkosammy12.jemu.core.nes.RP2C02.*;
 import static io.github.arkosammy12.jemu.core.nes.RP2C02.CIRAM_MIRROR_END;
-import static io.github.arkosammy12.jemu.core.nes.RP2C02.CIRAM_START;
-import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_MIRROR_END;
-import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_START;
 
 public class VRC6Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
@@ -85,40 +83,37 @@ public class VRC6Cartridge<E extends NESEmulator> extends NESCartridge<E> {
    @Override
 	public int readBytePPU(int address) {
 		this.observePPUAddress(address);
-		address &= 0x3FFF;
-
-		if (address < 0x2000) {
-			return this.readChrMappedAddress(this.mapChrAddress(address));
-		} else if (address < 0x3F00) {
-			if (this.usesRomNametables()) {
-				return this.readChrMappedAddress(this.mapVrc6NametableChrAddress(address));
-			}
-			return this.readByteVRAM(this.mapNametableAddress(address));
-		} else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_MIRROR_END) {
-			return address & 0xFF;
-		} else {
-			throw new EmulatorException("Invalid NES VRC6 cartridge PPU read address $%04X!".formatted(address));
-		}
+        if (address >= CHR_START && address <= CHR_END) {
+            return this.readChrMappedAddress(this.mapChrAddress(address));
+        } else if (address >= CIRAM_START && address <= CIRAM_MIRROR_END) {
+            if (this.usesROMNametables()) {
+                return this.readChrMappedAddress(this.mapVRC6NametableChrAddress(address));
+            } else {
+                return this.readByteVRAM(this.mapNametableAddress(address));
+            }
+        } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_MIRROR_END) {
+            return address & 0xFF;
+        } else {
+            throw new EmulatorException("Invalid NES VRC6 cartridge PPU read address $%04X!".formatted(address));
+        }
 	}
 
     @Override
 	public void writeBytePPU(int address, int value) {
 		this.observePPUAddress(address);
-		address &= 0x3FFF;
+        if (address >= 0x0000 && address <= 0x1FFF) {
+            this.writeChrMappedAddress(this.mapChrAddress(address), value);
+        } else if (address >= CIRAM_START && address <= CIRAM_MIRROR_END) {
+            if (this.usesROMNametables()) {
+                this.writeChrMappedAddress(this.mapVRC6NametableChrAddress(address), value);
+            } else {
+                this.writeByteVRAM(this.mapNametableAddress(address), value);
+            }
+        } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_MIRROR_END) {
 
-		if (address < 0x2000) {
-			this.writeChrMappedAddress(this.mapChrAddress(address), value);
-		} else if (address < 0x3F00) {
-			if (this.usesRomNametables()) {
-				this.writeChrMappedAddress(this.mapVrc6NametableChrAddress(address), value);
-			} else {
-				this.writeByteVRAM(this.mapNametableAddress(address), value);
-			}
-		} else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_MIRROR_END) {
-
-		} else {
-			throw new EmulatorException("Invalid NES VRC6 cartridge PPU write address $%04X!".formatted(address));
-		}
+        } else {
+            throw new EmulatorException("Invalid NES VRC6 cartridge PPU write address $%04X!".formatted(address));
+        }
 	}
 
     @Override
@@ -269,22 +264,22 @@ public class VRC6Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 		address = 0x2000 | (address & 0x0FFF);
 
 		int fine = address & 0x03FF;
-		int bank = this.selectVrc6NametableBank(address);
+		int bank = this.selectVRC6NametableBank(address);
 
 		// CIRAM is only 2 KiB. The selected nametable bank only contributes A10.
 		return ((bank & 1) << 10) | fine;
 	}
 
-	private int mapVrc6NametableChrAddress(int address) {
+	private int mapVRC6NametableChrAddress(int address) {
 		address = 0x2000 | (address & 0x0FFF);
 
 		int fine = address & 0x03FF;
-		int bank = this.selectVrc6NametableBank(address);
+		int bank = this.selectVRC6NametableBank(address);
 
 		return (bank << 10) | fine;
 	}
 
-	private int selectVrc6NametableBank(int address) {
+	private int selectVRC6NametableBank(int address) {
 		address = 0x2000 | (address & 0x0FFF);
 
 		int slot = (address >> 10) & 3;
@@ -365,7 +360,7 @@ public class VRC6Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 				default -> throw new EmulatorException("Invalid VRC6 nametable mode!");
 			}
 		} else {
-			reg = this.selectVrc6NametableRegisterWithA10Latched(mode, slot);
+			reg = this.selectVRC6NametableRegisterWithA10Latched(mode, slot);
 		}
 
 		if (forceLsb >= 0) {
@@ -375,7 +370,7 @@ public class VRC6Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 		return reg & 0xFF;
 	}
 
-	private int selectVrc6NametableRegisterWithA10Latched(int mode, int slot) {
+	private int selectVRC6NametableRegisterWithA10Latched(int mode, int slot) {
 		return switch (slot) {
 			case 0 -> switch (mode) {
 				case 0x1, 0x5, 0x9, 0xD -> this.R4;
@@ -395,7 +390,7 @@ public class VRC6Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 		};
 	}
 
-	private boolean usesRomNametables() {
+	private boolean usesROMNametables() {
 		return (this.ppuBankingStyle & (1 << 4)) != 0;
 	}
 
