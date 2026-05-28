@@ -42,6 +42,7 @@ public abstract class NESCartridge<E extends NESEmulator> implements Bus {
             case 7 -> new AxROMCartridge<>(emulator, iNESFile);
             case 9 -> new MMC2Cartridge<>(emulator, iNESFile);
             case 10 -> new MMC4Cartridge<>(emulator, iNESFile);
+            // TODO: For VRC2 and VRC4 iNES compatibility, place registers in two places to satisfy both submapper possibilities for a single iNES mapper
             case 21 -> switch (subMapperNumber) {
                 case 1, 2 -> new VRC4Cartridge<>(emulator, iNESFile);
                 default -> throw new EmulatorException("Invalid iNES mapper %d and submapper number %d combination!".formatted(mapperNumber, subMapperNumber));

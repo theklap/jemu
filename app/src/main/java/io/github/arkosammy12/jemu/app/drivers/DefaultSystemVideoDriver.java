@@ -55,10 +55,8 @@ public class DefaultSystemVideoDriver extends Canvas implements VideoDriver, Clo
             if (this.renderBuffer == null || this.videoGenerator == null) {
                 return;
             }
-            for (int y = 0; y < this.videoGenerator.getImageHeight(); y++) {
-                for (int x = 0; x < this.videoGenerator.getImageWidth(); x++) {
-                    this.renderBuffer[x][y] = rgb[x][y];
-                }
+            for (int x = 0; x < this.videoGenerator.getImageWidth(); x++) {
+                System.arraycopy(rgb[x], 0, this.renderBuffer[x], 0, this.videoGenerator.getImageHeight());
             }
         }
     }
