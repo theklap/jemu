@@ -196,7 +196,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
     private static final int SPRITE_FETCH_START = 257;
     private static final int SPRITE_FETCH_END = 320;
 
-    private final int[][] video;
+    private final int[] video;
     private final int[] compactPalette;
     private final int scanlinesPerFrame;
     private final int visibleScanlines;
@@ -288,7 +288,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         this.doOddFrameDotSkipping = this.doDotSkipping();
         this.compactPalette = this.getCompactPalette();
 
-        this.video = new int[WIDTH][this.visibleScanlines];
+        this.video = new int[WIDTH * this.visibleScanlines];
 
         for (int i = 0; i < 8; i++) {
             this.spriteShifters[i] = new SpriteShifter();
@@ -829,7 +829,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
             paletteByte &= 0x30;
         }
 
-        this.video[this.dotNumber - 1][this.scanlineNumber] = this.compactPalette[(this.getEmphasisBits() << 6) | (paletteByte & 0b111111)];
+        this.video[(this.scanlineNumber * WIDTH) + (this.dotNumber - 1)] = this.compactPalette[(this.getEmphasisBits() << 6) | (paletteByte & 0b111111)];
     }
 
     private int shiftBackgroundRegister(int select) {

@@ -1,5 +1,6 @@
 package io.github.arkosammy12.jemu.app.drivers;
 
+import io.github.arkosammy12.jemu.app.util.MavenProperties;
 import io.github.arkosammy12.jemu.core.common.VideoGenerator;
 import io.github.arkosammy12.jemu.core.drivers.VideoDriver;
 import org.tinylog.Logger;
@@ -15,8 +16,7 @@ import java.awt.image.BufferStrategy;
 
 public class DefaultSystemVideoDriver extends Canvas implements VideoDriver, Closeable {
 
-    private final VideoGenerator<?> videoGenerator;
-    private final int[][] renderBuffer;
+    private final int[] renderBuffer;
 
     private final int displayWidth;
     private final int displayHeight;
@@ -35,29 +35,23 @@ public class DefaultSystemVideoDriver extends Canvas implements VideoDriver, Clo
     private int lastHeight = -1;
 
     public DefaultSystemVideoDriver(VideoGenerator<?> videoGenerator, KeyListener keyListener) {
-        this.videoGenerator = videoGenerator;
         this.displayWidth = videoGenerator.getImageWidth();
         this.displayHeight = videoGenerator.getImageHeight();
 
-        this.renderBuffer = new int[displayWidth][displayHeight];
+        this.renderBuffer = new int[displayWidth * displayHeight];
         this.bufferedImage = new BufferedImage(displayWidth, displayHeight, BufferedImage.TYPE_INT_RGB);
 
         this.addKeyListener(keyListener);
 
-        this.renderThread = new Thread(this::renderLoop, "jemu-render-thread");
+        this.renderThread = new Thread(this::renderLoop, "%s-render-thread".formatted(MavenProperties.ARTIFACT_ID));
         this.renderThread.setDaemon(true);
         this.renderThread.start();
     }
 
     @Override
-    public void outputFrame(int[][] rgb) {
+    public void outputFrame(int[] rgb) {
         synchronized (this.renderBufferLock) {
-            if (this.renderBuffer == null || this.videoGenerator == null) {
-                return;
-            }
-            for (int x = 0; x < this.videoGenerator.getImageWidth(); x++) {
-                System.arraycopy(rgb[x], 0, this.renderBuffer[x], 0, this.videoGenerator.getImageHeight());
-            }
+            System.arraycopy(rgb, 0, this.renderBuffer, 0, rgb.length);
         }
     }
 
@@ -107,24 +101,18 @@ public class DefaultSystemVideoDriver extends Canvas implements VideoDriver, Clo
     }
 
     private void renderFrame() {
-        BufferStrategy bufferStrategy = getBufferStrategy();
+        BufferStrategy bufferStrategy = this.getBufferStrategy();
         if (bufferStrategy == null) {
             try {
-                createBufferStrategy(3);
+                this.createBufferStrategy(3);
             } catch (Exception e) {
                 Logger.warn("Failed to create buffer strategy: {}", e.getMessage());
             }
             return;
         }
-        updateTransformIfNeeded();
-        int[] pixels = ((DataBufferInt) this.bufferedImage.getRaster().getDataBuffer()).getData();
+        this.updateTransformIfNeeded();
         synchronized (this.renderBufferLock) {
-            for (int y = 0; y < displayHeight; y++) {
-                int base = y * displayWidth;
-                for (int x = 0; x < displayWidth; x++) {
-                    pixels[base + x] = this.renderBuffer[x][y];
-                }
-            }
+            System.arraycopy(this.renderBuffer, 0, ((DataBufferInt) this.bufferedImage.getRaster().getDataBuffer()).getData(), 0, this.renderBuffer.length);
         }
         Graphics2D g = (Graphics2D) bufferStrategy.getDrawGraphics();
         g.setColor(Color.BLACK);

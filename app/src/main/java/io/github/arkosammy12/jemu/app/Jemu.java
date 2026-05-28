@@ -76,8 +76,8 @@ public final class Jemu {
             helpManager.setProjectSourceLink("https://github.com/ArkoSammy12/jemu");
             helpManager.setProjectBugReportLink("https://github.com/ArkoSammy12/jemu/issues");
 
-            this.emulatorThread = new Thread(this::emulatorLoop, "jemu-emulator-thread");
-            this.uiEventListenerThread = new Thread(this::eventListenerLoop, "jemu-event-listener-thread");
+            this.emulatorThread = new Thread(this::emulatorLoop, "%s-emulator-thread".formatted(MavenProperties.ARTIFACT_ID));
+            this.uiEventListenerThread = new Thread(this::eventListenerLoop, "%s-event-listener-thread".formatted(MavenProperties.ARTIFACT_ID));
 
             this.mainWindow.show();
 

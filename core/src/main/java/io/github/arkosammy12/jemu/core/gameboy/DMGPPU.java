@@ -13,7 +13,7 @@ import static io.github.arkosammy12.jemu.core.gameboy.DMGBus.*;
 
 public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> implements Bus {
 
-    private static final int WIDTH = 160;
+    protected static final int WIDTH = 160;
     private static final int HEIGHT = 144;
 
     public static final int LCDC_ADDR = 0xFF40;
@@ -54,7 +54,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     private int windowX;
 
     // TODO: Implement the PPU behavior when the CPU is in STOP mode for the DMG and CGB
-    protected final int[][] lcd;
+    protected final int[] lcd;
 
     protected Mode currentMode = Mode.MODE_0_HBLANK;
     private int scanlineCycle;
@@ -100,10 +100,8 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
 
     public DMGPPU(E emulator) {
         super(emulator);
-        this.lcd = new int[this.getImageWidth()][this.getImageHeight()];
-        for (int[] ints : this.lcd) {
-            Arrays.fill(ints, this.getLcdOffColor());
-        }
+        this.lcd = new int[this.getImageWidth() * this.getImageHeight()];
+        Arrays.fill(this.lcd, this.getLcdOffColor());
         Arrays.fill(this.spriteBuffer, -1);
     }
 
@@ -232,9 +230,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         this.enablePixelWritesDelay = -1;
         this.armOamBugRead = false;
         this.armOamBugWrite = false;
-        for (int[] ints : this.lcd) {
-            Arrays.fill(ints, this.getLcdOffColor());
-        }
+        Arrays.fill(this.lcd, this.getLcdOffColor());
         this.emulator.getHost().getVideoDriver().ifPresent(driver -> driver.outputFrame(this.lcd));
     }
 
@@ -775,7 +771,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         // TODO: Emulate color shown in the LCD during CPU STOP mode depending on which mode the STOP mode lands on. Same for CGB
         if (finalPixel != null) {
             if (this.pixelX >= 8 && this.enablePixelWrites) {
-                this.lcd[this.pixelX - 8][this.scanlineNumber] = finalPixel;
+                this.lcd[(this.scanlineNumber * WIDTH) + (this.pixelX - 8)] = finalPixel;
             }
             this.pixelX++;
         }
