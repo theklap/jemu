@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.github.arkosammy12</groupId>
         <artifactId>jemu</artifactId>
-        <version>0.1.0</version>
+        <version>0.2.0</version>
     </parent>
 
     <properties>
@@ -110,6 +110,9 @@
                         <option>--enable-native-access=ALL-UNNAMED</option>
                         <option>-XX:+UseZGC</option>
                         <option>-XX:+UseCompactObjectHeaders</option>
+                        <option>-XX:+AlwaysPreTouch</option>
+                        <option>-Xms256m</option>
+                        <option>-Xmx512m</option>
                     </javaOptions>
                 </configuration>
             </plugin>
@@ -128,6 +131,7 @@
                 </executions>
                 <configuration>
                     <generateGitPropertiesFile>true</generateGitPropertiesFile>
+                    <commitIdGenerationMode>flat</commitIdGenerationMode>
                     <generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
                     <commitIdGenerationMode>full</commitIdGenerationMode>
                     <failOnNoGitDirectory>false</failOnNoGitDirectory>

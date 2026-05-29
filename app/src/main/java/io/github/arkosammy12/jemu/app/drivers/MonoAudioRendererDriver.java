@@ -24,22 +24,12 @@ public class MonoAudioRendererDriver extends DefaultAudioRendererDriver {
     }
 
     @Override
-    public void onFrame() {
-        Optional<byte[]> optionalSamples = this.audioGenerator.getSampleFrame();
-        if (optionalSamples.isEmpty()) {
-            this.audioRenderer.pushSampleFrame(null);
-            return;
-        }
-        byte[] samples = optionalSamples.get();
-        this.audioRenderer.pushSampleFrame(this.resampleIfNecessary(samples));
-    }
-
-    private byte[] resampleIfNecessary(byte[] buf) {
+    protected byte[] convertBitDepthIfNecessary(byte[] buf) {
         return switch (this.audioGenerator.getBytesPerSample()) {
             case BYTES_1 -> {
                 byte[] buf16 = new byte[this.audioRenderer.getBytesPerFrame()];
                 for (int i = 0; i < buf.length; i++) {
-                    int sample16 = buf[i] * 256;
+                    int sample16 = ((int) buf[i] & 0xFF) * 256;
                     buf16[i * 2] = (byte) ((sample16 & 0xFF00) >>> 8);
                     buf16[(i * 2) + 1] = (byte) (sample16 & 0xFF);
                 }

@@ -41,14 +41,10 @@ public class NESEmulator implements Emulator, NMOS6502.SystemBus {
         this.cartridge = NESCartridge.getCartridge(this, INESFile.getINESFile(this.getHost().getRom()));
 
         // TODO: Detect TV system properly with the nes20 xml database
-        TVSystem tvSystem = this.cartridge.getINESFile().getTVSystem();
-        if (tvSystem == TVSystem.MULTIPLE_REGION) {
-            tvSystem = TVSystem.NTSC;
-        }
-        this.tvSystem = tvSystem;
+        this.tvSystem = this.cartridge.getINESFile().getTVSystem();
         boolean deriveCyclesFromMasterClock;
         switch (this.tvSystem) {
-            case NTSC -> {
+            case NTSC, MULTIPLE_REGION -> {
                 this.framerate = NTSC_FRAMERATE;
                 // Calculated based on fixed ratio
                 this.iterationsPerFrame = NTSC_MASTER_CLOCK_FREQUENCY_HZ / NTSC_CPU_CLOCK_DIVISOR / NTSC_FRAMERATE;

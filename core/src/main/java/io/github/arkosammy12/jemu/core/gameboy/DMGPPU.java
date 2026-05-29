@@ -2,19 +2,18 @@ package io.github.arkosammy12.jemu.core.gameboy;
 
 import io.github.arkosammy12.jemu.core.common.Bus;
 import io.github.arkosammy12.jemu.core.common.VideoGenerator;
-import io.github.arkosammy12.jemu.core.common.Processor;
 import io.github.arkosammy12.jemu.core.cpu.SM83;
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
+import io.github.arkosammy12.jemu.core.util.ShiftRegister;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 
 import java.util.Arrays;
-import java.util.LinkedList;
 
 import static io.github.arkosammy12.jemu.core.gameboy.DMGBus.*;
 
 public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> implements Bus {
 
-    private static final int WIDTH = 160;
+    protected static final int WIDTH = 160;
     private static final int HEIGHT = 144;
 
     public static final int LCDC_ADDR = 0xFF40;
@@ -43,7 +42,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     private final byte[] oam = new byte[0x00A0]; // TODO: OAM BUG (ONLY FOR DMG) GODDAMMIT!
 
     private int lcdControl;
-    private int ppuStatus; // TODO: STAT WRITE BUG (ONLY FOR DMG)!!!!
+    private int ppuStatus;
     protected int scrollY;
     protected int scrollX;
     private int lcdY;
@@ -55,7 +54,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     private int windowX;
 
     // TODO: Implement the PPU behavior when the CPU is in STOP mode for the DMG and CGB
-    protected final int[][] lcd;
+    protected final int[] lcd;
 
     protected Mode currentMode = Mode.MODE_0_HBLANK;
     private int scanlineCycle;
@@ -76,7 +75,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     private boolean windowYCondition;
     private boolean windowXCondition;
 
-    protected final Integer[] spriteBuffer = new Integer[10];
+    protected final long[] spriteBuffer = new long[10];
     private int scannedEntries = 0;
 
     protected final IntArrayFIFOQueue backgroundFifo = new IntArrayFIFOQueue(8);
@@ -88,7 +87,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     protected int bgFifoTileDataLow;
     protected int bgFifoTileDataHigh;
 
-    protected final LinkedList<Integer> spriteFifo = new LinkedList<>();
+    protected final ShiftRegister spriteFifo = new ShiftRegister(8, 32);
     protected int spriteFifoCurrentEntryIndex;
     protected int spriteFifoStep = 0;
     protected int spriteFifoCurrentTileNumber;
@@ -101,14 +100,9 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
 
     public DMGPPU(E emulator) {
         super(emulator);
-        this.lcd = new int[this.getImageWidth()][this.getImageHeight()];
-        for (int[] ints : this.lcd) {
-            Arrays.fill(ints, this.getLcdOffColor());
-        }
-        Arrays.fill(this.spriteBuffer, null);
-        for (int i = 0; i < 8; i++) {
-            this.spriteFifo.offer(null);
-        }
+        this.lcd = new int[this.getImageWidth() * this.getImageHeight()];
+        Arrays.fill(this.lcd, this.getLcdOffColor());
+        Arrays.fill(this.spriteBuffer, -1);
     }
 
     @Override
@@ -129,15 +123,15 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     public int readByte(int address) {
         if (address >= OAM_START && address <= OAM_END) {
             this.checkArmOamBugRead(address);
-            int ppuMode = this.getPpuMode();
-            if (Mode.MODE_0_HBLANK.matchesValue(ppuMode) || Mode.MODE_1_VBLANK.matchesValue(ppuMode) || !this.getLcdPpuEnable()) {
+            int ppuMode = this.getPPUMode();
+            if (Mode.MODE_0_HBLANK.matchesValue(ppuMode) || Mode.MODE_1_VBLANK.matchesValue(ppuMode) || !this.getLCDPPUEnable()) {
                 return (int) this.oam[address - OAM_START] & 0xFF;
             } else {
                 return 0xFF;
             }
 
         } else if (address >= VRAM_START && address <= VRAM_END) {
-            if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
+            if (!Mode.MODE_3_DRAWING.matchesValue(this.getPPUMode()) || !this.getLCDPPUEnable()) {
                 return (int) this.vram[address - VRAM_START] & 0xFF;
             } else {
                 return 0xFF;
@@ -164,35 +158,38 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     public void writeByte(int address, int value) {
         if (address >= OAM_START && address <= OAM_END) {
             this.checkArmOamBugWrite(address);
-            int ppuMode = this.getPpuMode();
-            if (Mode.MODE_0_HBLANK.matchesValue(ppuMode) || Mode.MODE_1_VBLANK.matchesValue(ppuMode) || !this.getLcdPpuEnable()) {
+            int ppuMode = this.getPPUMode();
+            if (Mode.MODE_0_HBLANK.matchesValue(ppuMode) || Mode.MODE_1_VBLANK.matchesValue(ppuMode) || !this.getLCDPPUEnable()) {
               this.oam[address - OAM_START] = (byte) value;
             }
         } else if (address >= VRAM_START && address <= VRAM_END) {
-            if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
+            if (!Mode.MODE_3_DRAWING.matchesValue(this.getPPUMode()) || !this.getLCDPPUEnable()) {
                 this.vram[address - VRAM_START] = (byte) value;
             }
         } else {
             switch (address) {
                 case LCDC_ADDR -> {
-                    boolean oldLcdEnable = this.getLcdPpuEnable();
+                    boolean oldLcdEnable = this.getLCDPPUEnable();
                     this.lcdControl = value & 0xFF;
-                    boolean newLcdEnable = this.getLcdPpuEnable();
+                    boolean newLcdEnable = this.getLCDPPUEnable();
                     if (oldLcdEnable != newLcdEnable) {
                         this.scanlineNumber = 0;
                         this.lcdY = 0;
                         this.scanlineCycle = 0;
                         this.currentMode = Mode.MODE_0_HBLANK;
-                        this.setPpuMode(Mode.MODE_0_HBLANK.getValue());
-                        this.setStatModeForInterrupt(Mode.MODE_0_HBLANK.getValue());
+                        this.setPPUMode(Mode.MODE_0_HBLANK.getValue());
+                        this.setSTATModeForInterrupt(Mode.MODE_0_HBLANK.getValue());
                     }
                     if (!oldLcdEnable && newLcdEnable) {
-                        this.onLcdOn();
+                        this.onLCDOn();
                     } else if (oldLcdEnable && !newLcdEnable) {
-                        this.onLcdOff();
+                        this.onLCDOff();
                     }
                 }
-                case STAT_ADDR -> this.ppuStatus = (value & 0b11111000) | (this.ppuStatus & 0b111);
+                case STAT_ADDR -> {
+                    this.checkSTATWriteBug();
+                    this.ppuStatus = (value & 0b11111000) | (this.ppuStatus & 0b111);
+                }
                 case SCY_ADDR -> this.scrollY = value & 0xFF;
                 case SCX_ADDR -> this.scrollX = value & 0xFF;
                 case LY_ADDR -> {}
@@ -207,31 +204,33 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         }
     }
 
+    protected void checkSTATWriteBug() {
+        this.evaluateSTATLine(true, true, true, true);
+    }
+
     public void checkArmOamBugRead(int address) {
-        if (address >= OAM_START && address <= OAM_END && this.getLcdPpuEnable()) {
+        if (address >= OAM_START && address <= OAM_END && this.getLCDPPUEnable()) {
             this.armOamBugRead = true;
         }
     }
 
     public void checkArmOamBugWrite(int address) {
-        if (address >= OAM_START && address <= OAM_END && this.getLcdPpuEnable()) {
+        if (address >= OAM_START && address <= OAM_END && this.getLCDPPUEnable()) {
             this.armOamBugWrite = true;
         }
     }
 
-    private void onLcdOn() {
+    private void onLCDOn() {
         this.enablePixelWritesDelay = 2;
         this.scanlineCycle = 4;
     }
 
-    private void onLcdOff() {
+    private void onLCDOff() {
         this.enablePixelWrites = false;
         this.enablePixelWritesDelay = -1;
         this.armOamBugRead = false;
         this.armOamBugWrite = false;
-        for (int[] ints : this.lcd) {
-            Arrays.fill(ints, this.getLcdOffColor());
-        }
+        Arrays.fill(this.lcd, this.getLcdOffColor());
         this.emulator.getHost().getVideoDriver().ifPresent(driver -> driver.outputFrame(this.lcd));
     }
 
@@ -243,7 +242,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     }
 
     private void cycleDot(int tCycle) {
-        if (!this.getLcdPpuEnable()) {
+        if (!this.getLCDPPUEnable()) {
             return;
         }
         this.nextState();
@@ -251,7 +250,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         switch (this.currentMode) {
             case MODE_0_HBLANK -> this.onHBlank();
             case MODE_1_VBLANK -> this.onVBlank();
-            case MODE_2_OAM_SCAN -> this.onOamScan();
+            case MODE_2_OAM_SCAN -> this.onOAMScan();
             case MODE_3_DRAWING -> this.onDrawing();
         }
 
@@ -275,7 +274,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
             this.scanlineNumber = (this.scanlineNumber + 1) % SCANLINES_PER_FRAME;
             if (originalScanlineNumber != 153) {
                 this.lcdY = (this.lcdY + 1) % SCANLINES_PER_FRAME;
-                this.clearLyEqualsLycFlag();
+                this.setLYEqualsLYCFlag(false);
             }
 
             if (this.windowPixelRendered) {
@@ -285,22 +284,22 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         }
 
         if (this.scanlineCycle >= 3) {
-            if (this.lcdY == this.lcdYCompare) {
-                this.setLyEqualsLycFlag();
-            } else {
-                this.clearLyEqualsLycFlag();
-            }
+            this.setLYEqualsLYCFlag(this.lcdY == this.lcdYCompare);
         }
 
+        this.oldStatInterruptLine = this.evaluateSTATLine(this.getLYCInterruptSelect(), this.getMode0InterruptSelect(), this.getMode1InterruptSelect(), this.getMode2InterruptSelect());
+    }
+
+    private boolean evaluateSTATLine(boolean lycSelect, boolean mode0Select, boolean mode1Select, boolean mode2Select) {
         boolean statInterruptLine = false;
-        statInterruptLine |= this.getLycInterruptSelect() && this.getLyEqualsLycFlag();
-        statInterruptLine |= this.getMode0InterruptSelect() && Mode.MODE_0_HBLANK.matchesValue(this.statModeForInterrupt);
-        statInterruptLine |= this.getMode1InterruptSelect() && Mode.MODE_1_VBLANK.matchesValue(this.statModeForInterrupt);
-        statInterruptLine |= this.getMode2InterruptSelect() && Mode.MODE_2_OAM_SCAN.matchesValue(this.statModeForInterrupt);
+        statInterruptLine |= lycSelect && this.getLYEqualsLYCFlag();
+        statInterruptLine |= mode0Select && Mode.MODE_0_HBLANK.matchesValue(this.statModeForInterrupt);
+        statInterruptLine |= mode1Select && Mode.MODE_1_VBLANK.matchesValue(this.statModeForInterrupt);
+        statInterruptLine |= mode2Select && Mode.MODE_2_OAM_SCAN.matchesValue(this.statModeForInterrupt);
         if (!this.oldStatInterruptLine && statInterruptLine) {
-            this.triggerStatInterrupt();
+            this.triggerSTATInterrupt();
         }
-        this.oldStatInterruptLine = statInterruptLine;
+        return statInterruptLine;
     }
 
     private void nextState() {
@@ -339,15 +338,15 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
             case 3 -> {
                 if (this.scanlineNumber == 144) {
 
-                    this.setPpuMode(Mode.MODE_1_VBLANK.getValue());
-                    this.setStatModeForInterrupt(Mode.MODE_1_VBLANK.getValue());
+                    this.setPPUMode(Mode.MODE_1_VBLANK.getValue());
+                    this.setSTATModeForInterrupt(Mode.MODE_1_VBLANK.getValue());
                     this.triggerVBlankInterrupt();
                     this.windowYCondition = false;
                     this.windowLine = 0;
 
                     // For some reason, Mooneye test vblank_stat_intr-GS.gb expects this
                     if (this.getMode2InterruptSelect()) {
-                        this.triggerStatInterrupt();
+                        this.triggerSTATInterrupt();
                     }
 
                     if (this.enablePixelWritesDelay > 0) {
@@ -360,7 +359,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
                     this.emulator.getHost().getVideoDriver().ifPresent(driver -> driver.outputFrame(this.lcd));
                 } else if (this.scanlineNumber == 153) {
                     this.lcdY = 0;
-                    this.clearLyEqualsLycFlag();
+                    this.setLYEqualsLYCFlag(false);
                 }
                 this.dotCycleIndex = 4;
             }
@@ -381,8 +380,8 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
                 this.dotCycleIndex = 3;
             }
             case 3 -> {
-                this.setStatModeForInterrupt(Mode.MODE_0_HBLANK.getValue());
-                this.setPpuMode(Mode.MODE_0_HBLANK.getValue());
+                this.setSTATModeForInterrupt(Mode.MODE_0_HBLANK.getValue());
+                this.setPPUMode(Mode.MODE_0_HBLANK.getValue());
                 this.dotCycleIndex = 4;
             }
             case 4 -> {}
@@ -406,12 +405,9 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         this.bgFifoTileDataLow = 0;
         this.bgFifoTileDataHigh = 0;
 
-        Arrays.fill(this.spriteBuffer, null);
+        Arrays.fill(this.spriteBuffer, -1);
 
         this.spriteFifo.clear();
-        for (int i = 0; i < 8; i++) {
-            this.spriteFifo.add(null);
-        }
 
         this.spriteFifoStep = 0;
         this.spriteFifoCurrentEntryIndex = -1;
@@ -421,7 +417,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         this.spriteFifoTileDataHigh = 0;
     }
 
-    private void onOamScan() {
+    private void onOAMScan() {
         switch (this.dotCycleIndex) {
             case 0 -> {
                 if (this.scanlineNumber == this.windowY) {
@@ -430,23 +426,23 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
                 this.dotCycleIndex = 1;
             }
             case 1 -> {
-                this.tickOamScan();
+                this.tickOAMScan();
                 this.dotCycleIndex = 2;
             }
             case 2 -> {
                 this.dotCycleIndex = 3;
             }
             case 3 -> {
-                this.setPpuMode(Mode.MODE_2_OAM_SCAN.getValue());
-                this.setStatModeForInterrupt(Mode.MODE_2_OAM_SCAN.getValue());
-                this.tickOamScan();
+                this.setPPUMode(Mode.MODE_2_OAM_SCAN.getValue());
+                this.setSTATModeForInterrupt(Mode.MODE_2_OAM_SCAN.getValue());
+                this.tickOAMScan();
                 this.dotCycleIndex = 4;
             }
             case 4 -> {
                 this.dotCycleIndex = 5;
             }
             case 5 -> {
-                this.tickOamScan();
+                this.tickOAMScan();
                 this.dotCycleIndex = 4;
             }
         }
@@ -455,13 +451,13 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
     // TODO: The OAM bus has a 16-bit address bus. During OAM scan, the PPU reads only the X and Y bytes to determine whether they are in range.
     // During sprite fetching, the PPU fetches the attribute and tile index bytes at once.
     // Store only the X and Y bytes in the sprite buffer alongside the OAM index from which to calculate the attribute and tile index bytes fetch addresses.
-    private void tickOamScan() {
+    private void tickOAMScan() {
         int spriteY = this.getOAMByte(0xFE00 + (this.scannedEntries * 4));
         int spriteX = this.getOAMByte(0xFE00 + (this.scannedEntries * 4) + 1);
         int tileIndex = this.getOAMByte(0xFE00 + (this.scannedEntries * 4) + 2);
         int spriteAttributes = this.getOAMByte(0xFE00 + (this.scannedEntries * 4) + 3);
         for (int i = 0; i < 10; i++) {
-            if (this.spriteBuffer[i] == null) {
+            if (this.spriteBuffer[i] < 0) {
                 if ((this.scanlineNumber + 16 >= spriteY) && (this.scanlineNumber + 16 < spriteY + (this.getObjectSize() ? 16 : 8))) {
                     this.spriteBuffer[i] = createSpriteBufferEntry(spriteY, spriteX, tileIndex, spriteAttributes);
                 }
@@ -471,7 +467,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         this.scannedEntries++;
     }
 
-    private void doOamBugRead() {
+    private void doOAMBugRead() {
         int cur = ((this.scannedEntries / 2) + 1) * 8;
         if (cur < 8 || cur >= 160 || !Mode.MODE_2_OAM_SCAN.matchesValue(this.currentMode.getValue())) {
             return;
@@ -529,8 +525,8 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
                 this.dotCycleIndex = 3;
             }
             case 3 -> {
-                this.setPpuMode(Mode.MODE_3_DRAWING.getValue());
-                this.setStatModeForInterrupt(Mode.MODE_3_DRAWING.getValue());
+                this.setPPUMode(Mode.MODE_3_DRAWING.getValue());
+                this.setSTATModeForInterrupt(Mode.MODE_3_DRAWING.getValue());
                 this.tickDraw();
                 this.dotCycleIndex = 4;
             }
@@ -680,7 +676,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
             }
             case 3 -> {
                 boolean objSize = this.getObjectSize();
-                int spriteEntry = this.spriteBuffer[this.spriteFifoCurrentEntryIndex];
+                long spriteEntry = this.spriteBuffer[this.spriteFifoCurrentEntryIndex];
                 int spriteAttributes = getSpriteAttributesFromEntry(spriteEntry);
                 boolean yFlip = getYFlipFromObjAttributes(spriteAttributes);
                 int spriteY = getSpriteYFromSpriteEntry(spriteEntry);
@@ -708,7 +704,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
             case 5 -> {
                 this.spriteFifoTileDataHigh = this.getVRAMByte((this.spriteFifoTileDataEffectiveAddress + 1) & 0xFFFF);
 
-                int spriteEntry = this.spriteBuffer[this.spriteFifoCurrentEntryIndex];
+                long spriteEntry = this.spriteBuffer[this.spriteFifoCurrentEntryIndex];
                 int spriteX = getSpriteXFromSpriteEntry(spriteEntry);
                 int spriteAttributes = getSpriteAttributesFromEntry(spriteEntry);
                 boolean xFlip = getXFlipFromObjAttributes(spriteAttributes);
@@ -727,13 +723,13 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
                         continue;
                     }
 
-                    Integer currentQueuedPixel = this.spriteFifo.get(i);
-                    if (currentQueuedPixel == null || getDmgColorNumberFromObjPixelEntry(currentQueuedPixel) == 0) {
+                    int currentQueuedPixel = this.spriteFifo.get(i);
+                    if (getDmgColorNumberFromObjPixelEntry(currentQueuedPixel) == 0) {
                         this.spriteFifo.set(i, createDmgObjPixelEntry(colorNumber, priority, palette));
                     }
                 }
 
-                this.spriteBuffer[this.spriteFifoCurrentEntryIndex] = null;
+                this.spriteBuffer[this.spriteFifoCurrentEntryIndex] = -1;
                 this.spriteFifoCurrentEntryIndex = -1;
                 this.spriteFifoStep = 0;
 
@@ -762,31 +758,26 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
             finalPixel = null;
         }
 
-        Integer objPixel = this.spriteFifo.poll();
-        this.spriteFifo.offer(null);
-        if (objPixel != null) {
-            int objColorNumber = getDmgColorNumberFromObjPixelEntry(objPixel);
-            if (!this.getObjectEnable()) {
-                objColorNumber = 0;
-            }
-            boolean objPriority = getDmgPriorityForObjPixelEntry(objPixel);
-            boolean objPalette = getDmgPaletteForObjPixelEntry(objPixel);
-            if (objColorNumber != 0 && !(objPriority && bgPixel != 0)) {
-                int objPaletteIndex = ((objPalette ? this.objectPalette1 : this.objectPalette0) >>> (objColorNumber * 2)) & 0b11;
-                finalPixel = DMG_PALETTE[objPaletteIndex];
-            }
+        int objPixel = this.spriteFifo.shiftHead(0);
+        int objColorNumber = getDmgColorNumberFromObjPixelEntry(objPixel);
+        if (!this.getObjectEnable()) {
+            objColorNumber = 0;
+        }
+        if (objColorNumber != 0 && !(getDmgPriorityForObjPixelEntry(objPixel) && bgPixel != 0)) {
+            int objPaletteIndex = ((getDmgPaletteForObjPixelEntry(objPixel) ? this.objectPalette1 : this.objectPalette0) >>> (objColorNumber * 2)) & 0b11;
+            finalPixel = DMG_PALETTE[objPaletteIndex];
         }
 
         // TODO: Emulate color shown in the LCD during CPU STOP mode depending on which mode the STOP mode lands on. Same for CGB
         if (finalPixel != null) {
             if (this.pixelX >= 8 && this.enablePixelWrites) {
-                this.lcd[this.pixelX - 8][this.scanlineNumber] = finalPixel;
+                this.lcd[(this.scanlineNumber * WIDTH) + (this.pixelX - 8)] = finalPixel;
             }
             this.pixelX++;
         }
     }
 
-    protected boolean getLcdPpuEnable() {
+    protected boolean getLCDPPUEnable() {
         return (this.lcdControl & 0b10000000) != 0;
     }
 
@@ -819,7 +810,7 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         return (this.lcdControl & 0b00000001) != 0;
     }
 
-    private boolean getLycInterruptSelect() {
+    private boolean getLYCInterruptSelect() {
         return (this.ppuStatus & 0b01000000) != 0;
     }
 
@@ -835,31 +826,31 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         return (this.ppuStatus & 0b00001000) != 0;
     }
 
-    public boolean getLyEqualsLycFlag() {
+    public boolean getLYEqualsLYCFlag() {
         return (this.ppuStatus & 0b00000100) != 0;
     }
 
-    protected int getPpuMode() {
+    protected int getPPUMode() {
         return this.ppuStatus & 0b11;
     }
 
-    private void setPpuMode(int mode) {
+    private void setPPUMode(int mode) {
         this.ppuStatus = (this.ppuStatus & 0b11111100) | (mode & 0b11);
     }
 
-    private void setStatModeForInterrupt(int mode) {
+    private void setSTATModeForInterrupt(int mode) {
         if (!(mode >= 0 && mode <= 3)) {
             throw new EmulatorException(new IllegalArgumentException("Invalid GameBoy PPU STAT mode for interrupt value %d!".formatted(mode)));
         }
         this.statModeForInterrupt = mode;
     }
 
-    private void setLyEqualsLycFlag() {
-        this.ppuStatus = Processor.setBit(this.ppuStatus, 0b100);
-    }
-
-    private void clearLyEqualsLycFlag() {
-        this.ppuStatus &= ~0b100;
+    private void setLYEqualsLYCFlag(boolean value) {
+        if (value) {
+            this.ppuStatus |= 0b100;
+        } else {
+            this.ppuStatus &= ~0b100;
+        }
     }
 
     public void writeOAMDMA(int address, int value) {
@@ -896,8 +887,8 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
 
     private int getSpriteEntryIndexMatchingX(int x) {
         for (int i = 0; i < 10; i++) {
-            Integer spriteEntry = this.spriteBuffer[i];
-            if (spriteEntry != null && getSpriteXFromSpriteEntry(spriteEntry) == x) {
+             long spriteEntry = this.spriteBuffer[i];
+            if (spriteEntry >= 0 && getSpriteXFromSpriteEntry(spriteEntry) == x) {
                 return i;
             }
         }
@@ -913,29 +904,29 @@ public class DMGPPU<E extends GameBoyEmulator> extends VideoGenerator<E> impleme
         bus.setIF(bus.getIF() | SM83.VBLANK_MASK);
     }
 
-    private void triggerStatInterrupt() {
+    private void triggerSTATInterrupt() {
         DMGBus<?> bus = this.emulator.getBus();
         bus.setIF(bus.getIF() | SM83.LCD_MASK);
     }
 
-    private static int createSpriteBufferEntry(int spriteY, int spriteX, int tileIndex, int spriteAttributes) {
-        return ((spriteAttributes & 0xFF) << 24) | ((tileIndex & 0xFF) << 16) | ((spriteX & 0xFF) << 8) | (spriteY & 0xFF);
+    private static long createSpriteBufferEntry(int spriteY, int spriteX, int tileIndex, int spriteAttributes) {
+        return ((long) (spriteAttributes & 0xFF) << 24) | (long) ((tileIndex & 0xFF) << 16) | (long) ((spriteX & 0xFF) << 8) | (long) (spriteY & 0xFF);
     }
 
-    protected static int getSpriteAttributesFromEntry(int entry) {
-        return (entry >>> 24) & 0xFF;
+    protected static int getSpriteAttributesFromEntry(long entry) {
+        return (int) (entry >>> 24) & 0xFF;
     }
 
-    protected static int getTileIndexFromSpriteEntry(int entry) {
-        return (entry >>> 16) & 0xFF;
+    protected static int getTileIndexFromSpriteEntry(long entry) {
+        return (int) (entry >>> 16) & 0xFF;
     }
 
-    protected static int getSpriteXFromSpriteEntry(int entry) {
-        return (entry >>> 8) & 0xFF;
+    protected static int getSpriteXFromSpriteEntry(long entry) {
+        return (int) (entry >>> 8) & 0xFF;
     }
 
-    protected static int getSpriteYFromSpriteEntry(int entry) {
-        return (entry) & 0xFF;
+    protected static int getSpriteYFromSpriteEntry(long entry) {
+        return (int) (entry) & 0xFF;
     }
 
     protected static boolean getPriorityFromObjAttributes(int spriteAttributes) {

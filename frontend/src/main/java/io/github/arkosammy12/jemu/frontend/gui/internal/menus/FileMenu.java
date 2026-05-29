@@ -1,4 +1,4 @@
-package io.github.arkosammy12.jemu.frontend.gui.swing.menus;
+package io.github.arkosammy12.jemu.frontend.gui.internal.menus;
 
 import com.formdev.flatlaf.icons.FlatFileViewFileIcon;
 import com.formdev.flatlaf.util.SystemFileChooser;
@@ -6,6 +6,7 @@ import io.github.arkosammy12.jemu.frontend.SystemDescriptor;
 import io.github.arkosammy12.jemu.frontend.gui.internal.SerializedEntry;
 import io.github.arkosammy12.jemu.frontend.gui.swing.MainWindow;
 import io.github.arkosammy12.jemu.frontend.gui.swing.MenuBarMenu;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.FileManager;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
@@ -21,7 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-public class FileMenu extends MenuBarMenu {
+public class FileMenu extends MenuBarMenu implements FileManager {
 
     private static final int RECENT_FILES_SIZE = 10;
 
@@ -110,8 +111,6 @@ public class FileMenu extends MenuBarMenu {
             this.rebuildOpenRecentMenu();
         });
 
-        // this.mainWindow.setTitleSection(1, "No file selected");
-
         openRecentMenu.add(clearRecentsButton);
         this.jMenu.add(openItem);
         this.jMenu.add(openRecentMenu);
@@ -129,15 +128,16 @@ public class FileMenu extends MenuBarMenu {
         mainWindow.registerStateProperty(new SerializedEntry("file.current_directory", () -> this.currentDirectory == null ? "" : this.currentDirectory.toString(), s -> this.currentDirectory = Path.of(s)));
     }
 
+    @Override
     public Optional<Path> getSelectedRomPath() {
         return Optional.ofNullable(this.currentRomPath);
     }
 
     public void loadFile(Path filePath) {
         this.loadFile(filePath, false);
-        //this.mainWindow.setTitleSection(1, filePath.getFileName().toString());
     }
 
+    @Override
     public void loadFile(Path filePath, boolean forceReset) {
         SwingUtilities.invokeLater(() -> {
             this.currentRomPath = filePath;

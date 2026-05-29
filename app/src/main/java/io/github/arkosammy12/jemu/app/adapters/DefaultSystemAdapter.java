@@ -1,7 +1,7 @@
 package io.github.arkosammy12.jemu.app.adapters;
 
 import io.github.arkosammy12.jemu.app.drivers.DefaultAudioRendererDriver;
-import io.github.arkosammy12.jemu.app.drivers.JPanelVideoDriver;
+import io.github.arkosammy12.jemu.app.drivers.DefaultSystemVideoDriver;
 import io.github.arkosammy12.jemu.app.io.initializers.CoreInitializer;
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import io.github.arkosammy12.jemu.frontend.audio.AudioRenderer;
@@ -36,7 +36,7 @@ public abstract class DefaultSystemAdapter implements SystemAdapter {
         return this.path;
     }
 
-    public abstract JPanelVideoDriver getJPanelVideoDriver();
+    public abstract DefaultSystemVideoDriver getJPanelVideoDriver();
 
     public abstract AudioRenderer getAudioRenderer();
 

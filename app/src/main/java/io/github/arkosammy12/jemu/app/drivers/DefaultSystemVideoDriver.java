@@ -1,9 +1,10 @@
 package io.github.arkosammy12.jemu.app.drivers;
 
+import io.github.arkosammy12.jemu.app.util.MavenProperties;
 import io.github.arkosammy12.jemu.core.common.VideoGenerator;
 import io.github.arkosammy12.jemu.core.drivers.VideoDriver;
+import org.tinylog.Logger;
 
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyListener;
 import java.awt.geom.AffineTransform;
@@ -11,10 +12,11 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.io.Closeable;
 
-public class JPanelVideoDriver extends JPanel implements VideoDriver, Closeable {
+import java.awt.image.BufferStrategy;
 
-    private final VideoGenerator<?> videoGenerator;
-    private final int[][] renderBuffer;
+public class DefaultSystemVideoDriver extends Canvas implements VideoDriver, Closeable {
+
+    private final int[] renderBuffer;
 
     private final int displayWidth;
     private final int displayHeight;
@@ -32,31 +34,24 @@ public class JPanelVideoDriver extends JPanel implements VideoDriver, Closeable 
     private int lastWidth = -1;
     private int lastHeight = -1;
 
-    public JPanelVideoDriver(VideoGenerator<?> videoGenerator, KeyListener keyListener) {
-        this.videoGenerator = videoGenerator;
+    public DefaultSystemVideoDriver(VideoGenerator<?> videoGenerator, KeyListener keyListener) {
         this.displayWidth = videoGenerator.getImageWidth();
         this.displayHeight = videoGenerator.getImageHeight();
 
-        this.renderBuffer = new int[displayWidth][displayHeight];
-        this.bufferedImage = new BufferedImage(displayWidth, displayHeight, BufferedImage.TYPE_INT_ARGB);
+        this.renderBuffer = new int[displayWidth * displayHeight];
+        this.bufferedImage = new BufferedImage(displayWidth, displayHeight, BufferedImage.TYPE_INT_RGB);
 
-        SwingUtilities.invokeLater(() -> this.addKeyListener(keyListener));
-        this.renderThread = new Thread(this::renderLoop, "jemu-render-thread");
+        this.addKeyListener(keyListener);
+
+        this.renderThread = new Thread(this::renderLoop, "%s-render-thread".formatted(MavenProperties.ARTIFACT_ID));
         this.renderThread.setDaemon(true);
         this.renderThread.start();
     }
 
     @Override
-    public void outputFrame(int[][] argb) {
+    public void outputFrame(int[] rgb) {
         synchronized (this.renderBufferLock) {
-            if (this.renderBuffer == null || this.videoGenerator == null) {
-                return;
-            }
-            for (int y = 0; y < this.videoGenerator.getImageHeight(); y++) {
-                for (int x = 0; x < this.videoGenerator.getImageWidth(); x++) {
-                    this.renderBuffer[x][y] = argb[x][y];
-                }
-            }
+            System.arraycopy(rgb, 0, this.renderBuffer, 0, rgb.length);
         }
     }
 
@@ -67,20 +62,7 @@ public class JPanelVideoDriver extends JPanel implements VideoDriver, Closeable 
         }
     }
 
-    @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        this.updateTransformIfNeeded();
-        Graphics2D g2 = (Graphics2D) g.create();
-        try {
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            g2.drawImage(this.bufferedImage, this.drawTransform, null);
-        } finally {
-            g2.dispose();
-        }
-    }
-
-        private void updateTransformIfNeeded() {
+    private void updateTransformIfNeeded() {
         int w = this.getWidth();
         int h = this.getHeight();
 
@@ -88,13 +70,13 @@ public class JPanelVideoDriver extends JPanel implements VideoDriver, Closeable 
             return;
         }
 
-        double scale = Math.min((double) w / this.displayWidth, (double) h / this.displayHeight);
+        double scale = Math.min((double) w / (double) this.displayWidth, (double) h / (double) this.displayHeight);
 
-        double scaledWidth = this.displayWidth * scale;
-        double scaledHeight = this.displayHeight * scale;
+        double scaledWidth = (double) this.displayWidth * scale;
+        double scaledHeight = (double) this.displayHeight * scale;
 
-        double offsetX = (w - scaledWidth) / 2.0;
-        double offsetY = (h - scaledHeight) / 2.0;
+        double offsetX = ((double) w - scaledWidth) / 2.0;
+        double offsetY = ((double) h - scaledHeight) / 2.0;
 
         this.drawTransform.setToIdentity();
         this.drawTransform.translate(offsetX, offsetY);
@@ -119,16 +101,27 @@ public class JPanelVideoDriver extends JPanel implements VideoDriver, Closeable 
     }
 
     private void renderFrame() {
-        int[] pixels = ((DataBufferInt) bufferedImage.getRaster().getDataBuffer()).getData();
-        synchronized (this.renderBufferLock) {
-            for (int y = 0; y < displayHeight; y++) {
-                int base = y * displayWidth;
-                for (int x = 0; x < displayWidth; x++) {
-                    pixels[base + x] = 0xFF000000 | renderBuffer[x][y];
-                }
+        BufferStrategy bufferStrategy = this.getBufferStrategy();
+        if (bufferStrategy == null) {
+            try {
+                this.createBufferStrategy(3);
+            } catch (Exception e) {
+                Logger.warn("Failed to create buffer strategy: {}", e.getMessage());
             }
+            return;
         }
-        SwingUtilities.invokeLater(this::repaint);
+        this.updateTransformIfNeeded();
+        synchronized (this.renderBufferLock) {
+            System.arraycopy(this.renderBuffer, 0, ((DataBufferInt) this.bufferedImage.getRaster().getDataBuffer()).getData(), 0, this.renderBuffer.length);
+        }
+        Graphics2D g = (Graphics2D) bufferStrategy.getDrawGraphics();
+        g.setColor(Color.BLACK);
+        g.fillRect(0, 0, getWidth(), getHeight());
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        g.drawImage(this.bufferedImage, this.drawTransform, null);
+        g.dispose();
+        bufferStrategy.show();
+        Toolkit.getDefaultToolkit().sync();
     }
 
     @Override

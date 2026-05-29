@@ -11,9 +11,9 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.github.arkosammy12.jemu.core.nes.RP2C02.CIRAM_MIRROR_END;
+import static io.github.arkosammy12.jemu.core.nes.RP2C02.CIRAM_END;
 import static io.github.arkosammy12.jemu.core.nes.RP2C02.CIRAM_START;
-import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_MIRROR_END;
+import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_END;
 import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_START;
 
 public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
@@ -101,9 +101,9 @@ public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
             } else {
                 return (int) this.characterROM[this.mapChrAddress(address) % this.characterROM.length] & 0xFF;
             }
-        } else if (address >= CIRAM_START && address <= CIRAM_MIRROR_END) {
+        } else if (address >= CIRAM_START && address <= CIRAM_END) {
             return this.readByteVRAM(this.mapNametableAddress(address));
-        } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_MIRROR_END) {
+        } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_END) {
             return address & 0xFF;
         } else {
             throw new EmulatorException("Invalid NES MMC3 cartridge PPU read address $%04X!".formatted(address));
@@ -117,9 +117,9 @@ public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
             if (this.characterRAM != null) {
                 this.characterRAM[this.mapChrAddress(address) % this.characterRAM.length] = (byte) value;
             }
-        } else if (address >= CIRAM_START && address <= CIRAM_MIRROR_END) {
+        } else if (address >= CIRAM_START && address <= CIRAM_END) {
             this.writeByteVRAM(this.mapNametableAddress(address), value);
-        } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_MIRROR_END) {
+        } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_END) {
 
         } else {
             throw new EmulatorException("Invalid NES MMC3 cartridge PPU write address $%04X!".formatted(address));
@@ -193,7 +193,11 @@ public class MMC3Cartridge<E extends NESEmulator> extends NESCartridge<E> {
     @Override
     public void cycle() {
         if ((this.previousPPUAddress & A12) == 0) {
-            this.cyclesDown++;
+            // Cap the cyclesDown counter to 10, since we just care that it is at least 4 when clocking the scanline counter.
+            // This way we prevent a potential integer overflow.
+            if (this.cyclesDown < 10) {
+                this.cyclesDown++;
+            }
         } else {
             this.cyclesDown = 0;
         }

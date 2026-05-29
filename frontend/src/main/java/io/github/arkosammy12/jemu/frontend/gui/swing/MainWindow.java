@@ -8,6 +8,14 @@ import io.github.arkosammy12.jemu.frontend.gui.internal.commands.*;
 import io.github.arkosammy12.jemu.frontend.gui.internal.events.InternalEvent;
 import io.github.arkosammy12.jemu.frontend.gui.swing.commands.*;
 import io.github.arkosammy12.jemu.frontend.gui.swing.events.Event;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.EmulatorMenu;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.FileMenu;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.HelpMenu;
+import io.github.arkosammy12.jemu.frontend.gui.internal.menus.SettingsMenu;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.EmulatorManager;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.FileManager;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.HelpManager;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.SettingsManager;
 import net.miginfocom.layout.AC;
 import net.miginfocom.layout.CC;
 import net.miginfocom.layout.LC;
@@ -49,9 +57,7 @@ public class MainWindow implements Closeable {
     private SystemViewport systemViewport;
 
     @Nullable
-    private StatusBar statusBar;
-
-    private final CC infoBarConstraints = new CC().grow().pushX().dockSouth().height("18!");
+    private TitleManager titleManager;
 
     private final BlockingQueue<EmulatorCommand> emulatorCommandQueue = new LinkedBlockingDeque<>();
     private final BlockingQueue<Event> eventQueue = new LinkedBlockingDeque<>();
@@ -130,11 +136,10 @@ public class MainWindow implements Closeable {
 
             this.systemViewport = new SystemViewport();
             this.menuBar = new MainMenuBar(this, this.appFrame);
-            this.statusBar = new StatusBar(this);
+            this.titleManager = new TitleManager(this, this.appFrame);
 
             this.appFrame.setJMenuBar(this.menuBar.getJMenuBar());
             this.appFrame.add(this.systemViewport.getJPanel(), new CC().grow().push().wrap());
-            this.appFrame.add(this.statusBar.getJPanel(), this.infoBarConstraints);
 
             Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
 
@@ -217,12 +222,24 @@ public class MainWindow implements Closeable {
         return Objects.requireNonNull(this.systemViewport);
     }
 
-    public MainMenuBar getMainMenuBar() {
-        return Objects.requireNonNull(this.menuBar);
+    public FileManager getFileManager() {
+        return this.getMainMenuBar().getFileMenu();
     }
 
-    public StatusBar getStatusBar() {
-        return Objects.requireNonNull(this.statusBar);
+    public EmulatorManager getEmulatorManager() {
+        return this.getMainMenuBar().getEmulatorMenu();
+    }
+
+    public SettingsManager getSettingsManager() {
+        return this.getMainMenuBar().getSettingsMenu();
+    }
+
+    public HelpManager getHelpManager() {
+        return this.getMainMenuBar().getHelpMenu();
+    }
+
+    public TitleManager getTitleManager() {
+        return Objects.requireNonNull(this.titleManager);
     }
 
     public void show() {
@@ -237,15 +254,6 @@ public class MainWindow implements Closeable {
                 runnable.run();
             }
 
-        });
-    }
-
-    public void setStatusBarEnabled(boolean enabled) {
-        SwingUtilities.invokeLater(() -> {
-            this.getStatusBar().getJPanel().setVisible(enabled);
-            this.infoBarConstraints.setHideMode(enabled ? 0 : 3);
-            this.getJFrame().revalidate();
-            this.getJFrame().repaint();
         });
     }
 
@@ -332,6 +340,11 @@ public class MainWindow implements Closeable {
     @ApiStatus.Internal
     public void registerSettingProperty(SerializedEntry serializedEntry) {
         this.settingProperties.add(new PropertyEntry(serializedEntry.key(), serializedEntry.serializer(), serializedEntry.deserializer()));
+    }
+
+    @ApiStatus.Internal
+    public MainMenuBar getMainMenuBar() {
+        return Objects.requireNonNull(this.menuBar);
     }
 
     @Override

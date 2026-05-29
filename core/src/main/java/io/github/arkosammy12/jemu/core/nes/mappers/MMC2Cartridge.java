@@ -8,11 +8,11 @@ import io.github.arkosammy12.jemu.core.nes.ines.INESFile;
 import java.util.Arrays;
 import java.util.Optional;
 
-import static io.github.arkosammy12.jemu.core.nes.RP2C02.CHR_ROM_END;
-import static io.github.arkosammy12.jemu.core.nes.RP2C02.CHR_ROM_START;
-import static io.github.arkosammy12.jemu.core.nes.RP2C02.CIRAM_MIRROR_END;
+import static io.github.arkosammy12.jemu.core.nes.RP2C02.CHR_END;
+import static io.github.arkosammy12.jemu.core.nes.RP2C02.CHR_START;
+import static io.github.arkosammy12.jemu.core.nes.RP2C02.CIRAM_END;
 import static io.github.arkosammy12.jemu.core.nes.RP2C02.CIRAM_START;
-import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_MIRROR_END;
+import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_END;
 import static io.github.arkosammy12.jemu.core.nes.RP2C02.PALETTE_RAM_START;
 import static io.github.arkosammy12.jemu.core.nes.ines.INESFile.KB_8;
 
@@ -55,15 +55,15 @@ public class MMC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     @Override
     public int readBytePPU(int address) {
-        if (address >= CHR_ROM_START && address <= CHR_ROM_END) {
+        if (address >= CHR_START && address <= CHR_END) {
             if (this.characterROM == null) {
                 return (int) this.characterRAM[this.mapChrAddress(address, true) % this.characterRAM.length] & 0xFF;
             } else {
                 return (int) this.characterROM[this.mapChrAddress(address, true) % this.characterROM.length] & 0xFF;
             }
-        } else if (address >= CIRAM_START && address <= CIRAM_MIRROR_END) {
+        } else if (address >= CIRAM_START && address <= CIRAM_END) {
             return this.readByteVRAM(this.mapNametableAddress(address));
-        } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_MIRROR_END) {
+        } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_END) {
             return address & 0xFF;
         } else {
             throw new EmulatorException("Invalid NES MMC2 cartridge PPU read address $%04X!".formatted(address));
@@ -72,13 +72,13 @@ public class MMC2Cartridge<E extends NESEmulator> extends NESCartridge<E> {
 
     @Override
     public void writeBytePPU(int address, int value) {
-        if (address >= CHR_ROM_START && address <= CHR_ROM_END) {
+        if (address >= CHR_START && address <= CHR_END) {
             if (this.characterRAM != null) {
                 this.characterRAM[this.mapChrAddress(address, false) % this.characterRAM.length] = (byte) value;
             }
-        } else if (address >= CIRAM_START && address <= CIRAM_MIRROR_END) {
+        } else if (address >= CIRAM_START && address <= CIRAM_END) {
             this.writeByteVRAM(this.mapNametableAddress(address), value);
-        } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_MIRROR_END) {
+        } else if (address >= PALETTE_RAM_START && address <= PALETTE_RAM_END) {
 
         } else {
             throw new EmulatorException("Invalid NES MMC2 cartridge PPU write address $%04X!".formatted(address));

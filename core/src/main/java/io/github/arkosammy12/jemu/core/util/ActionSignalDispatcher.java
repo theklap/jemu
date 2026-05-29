@@ -27,9 +27,11 @@ public class ActionSignalDispatcher {
         signal.pendingValues.put(fireAt, value);
     }
 
+    @SuppressWarnings("ForLoopReplaceableByForEach")
     public void tick() {
         this.ticks++;
-        for (Signal signal : this.signals) {
+        for (int i = 0; i < this.signals.size(); i++) {
+            Signal signal = this.signals.get(i);
             while (!signal.timers.isEmpty() && signal.timers.firstLong() <= this.ticks) {
                 signal.action.accept(signal.pendingValues.remove(signal.timers.dequeueLong()));
             }
@@ -38,9 +40,9 @@ public class ActionSignalDispatcher {
 
     private static final class Signal {
 
-        final IntConsumer action;
-        final LongPriorityQueue timers = new LongHeapPriorityQueue();
-        final Long2IntMap pendingValues = new Long2IntOpenHashMap();
+        private final IntConsumer action;
+        private final LongPriorityQueue timers = new LongHeapPriorityQueue();
+        private final Long2IntMap pendingValues = new Long2IntOpenHashMap();
 
         private Signal(IntConsumer action) {
             this.action = action;

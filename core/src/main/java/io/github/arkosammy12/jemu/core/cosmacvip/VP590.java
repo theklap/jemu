@@ -19,9 +19,6 @@ public class  VP590<E extends CosmacVIPEmulator> extends CDP1861<E> {
     public VP590(E emulator) {
         super(emulator);
         Arrays.fill(this.colorRam, (byte) 0xF0);
-        for (int[] ints : this.displayBuffer) {
-            Arrays.fill(ints, 0xFF000000);
-        }
     }
 
     public void writeColorRam(int address, int value) {
@@ -78,7 +75,7 @@ public class  VP590<E extends CosmacVIPEmulator> extends CDP1861<E> {
                 break;
             }
             for (int j = 0; j < 4; j++) {
-                this.displayBuffer[(col * 4) + j][row] = (value & mask) != 0 ? color : backgroundColor;
+                this.displayBuffer[(row * IMAGE_WIDTH) + (col * 4) + j] = (value & mask) != 0 ? color : backgroundColor;
             }
         }
     }

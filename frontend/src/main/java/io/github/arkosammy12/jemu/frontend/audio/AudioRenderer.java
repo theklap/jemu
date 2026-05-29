@@ -69,7 +69,7 @@ public abstract class AudioRenderer implements Closeable {
     }
 
     public void setVolume(int volume) {
-        this.volumeControl.setValue(20.0f * (float) Math.log10(Math.clamp(volume, 0, 100) / 100.0));
+        this.volumeControl.setValue(20.0f * (float) Math.log10((double) Math.clamp((long) volume, 0, 100) / 100.0));
     }
 
     abstract protected AudioFormat getAudioFormat();
@@ -78,12 +78,9 @@ public abstract class AudioRenderer implements Closeable {
 
     public void pushSampleFrame(byte @Nullable [] samples) {
         if (!this.started) {
-            //byte[] prefill = new byte[this.bytesPerFrame];
             this.audioLine.flush();
-            //this.audioLine.write(prefill, 0, prefill.length);
             this.audioLine.start();
             this.started = true;
-            //return;
         }
 
         if (this.paused) {
@@ -99,7 +96,18 @@ public abstract class AudioRenderer implements Closeable {
         this.audioLine.write(writtenSamples, 0, writtenSamples.length);
     }
 
-    abstract protected byte[] ensureBufferLength(byte[] buf);
+    private byte[] ensureBufferLength(byte[] buf) {
+        if (buf.length == this.bytesPerFrame) {
+            return buf;
+        }
+        byte[] actualBuf = new byte[this.bytesPerFrame];
+        System.arraycopy(buf, 0, actualBuf, 0, buf.length);
+        int frameSize = this.getBytesPerOutputSample();
+        for (int i = buf.length; i < actualBuf.length; i += frameSize) {
+            System.arraycopy(buf, buf.length - frameSize, actualBuf, i, frameSize);
+        }
+        return actualBuf;
+    }
 
     public void close() {
         this.audioLine.stop();

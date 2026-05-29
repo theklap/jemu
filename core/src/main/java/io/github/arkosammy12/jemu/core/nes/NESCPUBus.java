@@ -76,4 +76,8 @@ public class NESCPUBus<E extends NESEmulator> implements Bus {
         this.externalDataBus = value & 0xFF;
     }
 
+    public int getExternalDataBus() {
+        return this.externalDataBus;
+    }
+
 }

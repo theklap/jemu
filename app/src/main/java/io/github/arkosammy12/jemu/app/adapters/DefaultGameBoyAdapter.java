@@ -1,9 +1,6 @@
 package io.github.arkosammy12.jemu.app.adapters;
 
-import io.github.arkosammy12.jemu.app.drivers.DefaultAudioRendererDriver;
-import io.github.arkosammy12.jemu.app.drivers.JPanelVideoDriver;
-import io.github.arkosammy12.jemu.app.drivers.MonoAudioRendererDriver;
-import io.github.arkosammy12.jemu.app.drivers.StereoAudioRendererDriver;
+import io.github.arkosammy12.jemu.app.drivers.*;
 import io.github.arkosammy12.jemu.app.io.initializers.CoreInitializer;
 import io.github.arkosammy12.jemu.app.util.System;
 import io.github.arkosammy12.jemu.core.common.Emulator;
@@ -36,7 +33,7 @@ public class DefaultGameBoyAdapter extends DefaultSystemAdapter implements GameB
     private final Model model;
 
     private final Emulator emulator;
-    private final JPanelVideoDriver videoDriver;
+    private final DefaultSystemVideoDriver videoDriver;
     private final DefaultAudioRendererDriver audioDriver;
     private final AudioRenderer audioRenderer;
     private final Path saveDataDirectory;
@@ -94,7 +91,7 @@ public class DefaultGameBoyAdapter extends DefaultSystemAdapter implements GameB
             case DMG -> new GameBoyEmulator(this);
         };
 
-        this.videoDriver = new JPanelVideoDriver(this.emulator.getVideoGenerator(), keyAdapter);
+        this.videoDriver = new DefaultSystemVideoDriver(this.emulator.getVideoGenerator(), keyAdapter);
 
         int framerate = this.emulator.getFramerate();
         boolean isStereo = this.emulator.getAudioGenerator().isStereo();
@@ -147,7 +144,7 @@ public class DefaultGameBoyAdapter extends DefaultSystemAdapter implements GameB
     }
 
     @Override
-    public JPanelVideoDriver getJPanelVideoDriver() {
+    public DefaultSystemVideoDriver getJPanelVideoDriver() {
         return this.videoDriver;
     }
 

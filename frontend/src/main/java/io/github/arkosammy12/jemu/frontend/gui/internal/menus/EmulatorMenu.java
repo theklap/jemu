@@ -1,4 +1,4 @@
-package io.github.arkosammy12.jemu.frontend.gui.swing.menus;
+package io.github.arkosammy12.jemu.frontend.gui.internal.menus;
 
 import io.github.arkosammy12.jemu.frontend.SystemDescriptor;
 import io.github.arkosammy12.jemu.frontend.gui.internal.SerializedEntry;
@@ -8,6 +8,7 @@ import io.github.arkosammy12.jemu.frontend.gui.internal.commands.StopCommandCall
 import io.github.arkosammy12.jemu.frontend.gui.swing.MainWindow;
 import io.github.arkosammy12.jemu.frontend.gui.swing.MenuBarMenu;
 import io.github.arkosammy12.jemu.frontend.gui.swing.commands.*;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.EmulatorManager;
 import org.apache.commons.io.FilenameUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -19,7 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-public class EmulatorMenu extends MenuBarMenu {
+public class EmulatorMenu extends MenuBarMenu implements EmulatorManager {
 
     private final MainWindow mainWindow;
 
@@ -150,11 +151,12 @@ public class EmulatorMenu extends MenuBarMenu {
             pauseButton.setSelected(false);
             stepFrameButton.setEnabled(false);
             stepCycleButton.setEnabled(false);
-            mainWindow.getSystemViewport().setSystemDisplayPanel(null);
+            mainWindow.getSystemViewport().setSystemDisplay(null);
             emulatorStopped = true;
         }));
     }
 
+    @Override
     public void setCurrentSystemDescriptor(@Nullable SystemDescriptor systemDescriptor) {
         SwingUtilities.invokeLater(() -> {
             if (systemDescriptor == null) {

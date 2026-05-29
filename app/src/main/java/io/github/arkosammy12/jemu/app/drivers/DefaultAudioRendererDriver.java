@@ -5,6 +5,7 @@ import io.github.arkosammy12.jemu.core.drivers.AudioDriver;
 import io.github.arkosammy12.jemu.frontend.audio.AudioRenderer;
 
 import java.io.Closeable;
+import java.util.Optional;
 
 public abstract class DefaultAudioRendererDriver implements AudioDriver, Closeable {
 
@@ -20,6 +21,15 @@ public abstract class DefaultAudioRendererDriver implements AudioDriver, Closeab
         return this.audioRenderer;
     }
 
-    public abstract void onFrame();
+    public void onFrame() {
+        Optional<byte[]> optionalSamples = this.audioGenerator.getSampleFrame();
+        if (optionalSamples.isEmpty()) {
+            this.audioRenderer.pushSampleFrame(null);
+            return;
+        }
+        this.audioRenderer.pushSampleFrame(this.convertBitDepthIfNecessary(optionalSamples.get()));
+    }
+
+    protected abstract byte[] convertBitDepthIfNecessary(byte[] buf);
 
 }

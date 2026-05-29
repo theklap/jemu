@@ -1,4 +1,3 @@
-//klap was here
 package io.github.arkosammy12.jemu.core.nes;
 
 import io.github.arkosammy12.jemu.core.common.Bus;
@@ -6,9 +5,9 @@ import io.github.arkosammy12.jemu.core.common.VideoGenerator;
 import io.github.arkosammy12.jemu.core.exceptions.EmulatorException;
 import io.github.arkosammy12.jemu.core.util.ActionSignal;
 import io.github.arkosammy12.jemu.core.util.ActionSignalDispatcher;
+import io.github.arkosammy12.jemu.core.util.ShiftRegister;
 
 import java.util.Arrays;
-import java.util.LinkedList;
 
 import static io.github.arkosammy12.jemu.core.nes.NESCPUBus.PPU_END;
 import static io.github.arkosammy12.jemu.core.nes.NESCPUBus.PPU_START;
@@ -146,6 +145,14 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
             0x7e, 0xab, 0xad, 0x81, 0x81, 0x81, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
 
+    private static final int[] PALETTE_2C02G_COMPACT = new int[64 * 8];
+
+    static {
+        for (int i = 0; i < PALETTE_2C02G_COMPACT.length; i++) {
+            PALETTE_2C02G_COMPACT[i] = (PALETTE_2C02G_WIKI[i * 3] << 16) | (PALETTE_2C02G_WIKI[(i * 3) + 1] << 8) | PALETTE_2C02G_WIKI[(i * 3) + 2];
+        }
+    }
+
     private static final int PPUCTRL_ADDR = 0x2000;
     private static final int PPUMASK_ADDR = 0x2001;
     private static final int PPUSTATUS_ADDR = 0x2002;
@@ -155,20 +162,14 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
     private static final int PPUADDR_ADDR = 0x2006;
     private static final int PPUDATA_ADDR = 0x2007;
 
-    public static final int CHR_ROM_START = 0x0000;
-    public static final int CHR_ROM_END = 0x1FFF;
+    public static final int CHR_START = 0x0000;
+    public static final int CHR_END = 0x1FFF;
 
     public static final int CIRAM_START = 0x2000;
-    public static final int CIRAM_END = 0x2FFF;
-
-    public static final int CIRAM_MIRROR_START = 0x3000;
-    public static final int CIRAM_MIRROR_END = 0x3EFF;
+    public static final int CIRAM_END = 0x3EFF;
 
     public static final int PALETTE_RAM_START = 0x3F00;
-    public static final int PALETTE_RAM_END = 0x3F1F;
-
-    public static final int PALETTE_RAM_MIRROR_START = 0x3F20;
-    public static final int PALETTE_RAM_MIRROR_END = 0x3FFF;
+    public static final int PALETTE_RAM_END = 0x3FFF;
 
     private static final int WIDTH = 256;
 
@@ -189,8 +190,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
     private static final int SPRITE_FETCH_START = 257;
     private static final int SPRITE_FETCH_END = 320;
 
-    private final int[][] video;
-    private final int[] palette;
+    private final int[] video;
+    private final int[] compactPalette;
     private final int scanlinesPerFrame;
     private final int visibleScanlines;
     private final int vblScanline;
@@ -244,8 +245,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
     private int decayPPUDataBusCountdown;
 
-    private final LinkedList<Integer> backgroundShiftRegister = new LinkedList<>();
-    private final LinkedList<Integer> attributeShiftRegister = new LinkedList<>();
+    private final ShiftRegister backgroundShiftRegister = new ShiftRegister(16, 2);
+    private final ShiftRegister attributeShiftRegister = new ShiftRegister(8, 2);
 
     private int attributeRegisterLatch = 0b00;
 
@@ -279,15 +280,11 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         this.visibleScanlines = this.getVisibleScanlines();
         this.vblScanline = this.getVblScanline();
         this.doOddFrameDotSkipping = this.doDotSkipping();
-        this.palette = this.getPalette();
+        this.compactPalette = this.getCompactPalette();
 
-        this.video = new int[WIDTH][this.visibleScanlines];
+        this.video = new int[WIDTH * this.visibleScanlines];
 
-        for (int i = 0; i < 16; i++) {
-            this.backgroundShiftRegister.offer(0b00);
-        }
         for (int i = 0; i < 8; i++) {
-            this.attributeShiftRegister.offer(0b00);
             this.spriteShifters[i] = new SpriteShifter();
         }
         // Deliberately initialize OAM2 with $FF to avoid fetching in-range results
@@ -340,8 +337,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         return true;
     }
 
-    protected int[] getPalette() {
-        return PALETTE_2C02G_WIKI;
+    protected int[] getCompactPalette() {
+        return PALETTE_2C02G_COMPACT;
     }
 
     @Override
@@ -412,13 +409,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
         this.setDataBus(value);
 
-        // TODO: Make this into a system-specific setting in the future. Off by default.
-        // Block register writes during the first frame until the vbl, sprite 0 and sprite overflow flags are cleared
-        /*
-        if (this.ppuInit) {
-            return;
-        }
-         */
+        // TODO: Add an opt-in setting to enable the ppuInit functionality to block PPU register writes until dot 1 of the first pre-render scanline
         address = 0x2000 | (address & 7);
         switch (address) {
             case PPUCTRL_ADDR -> {
@@ -572,14 +563,18 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
             }
         }
 
+        boolean isRenderScanline = this.isRenderScanline();
+
         switch (this.currentDotHalf) {
             case FIRST -> {
 
                 this.refreshSpriteShiftersSignal.tick();
 
-                if (this.isRenderScanline()) {
+                if (isRenderScanline) {
+                    boolean isRenderingEnabled = this.isRenderingEnabled();
+
                     if (this.dotNumber == SPRITE_EVAL_START || this.dotNumber == SPRITE_FETCH_START || (this.dotSkipped && this.dotNumber == 1) || (!this.dotSkipped && this.dotNumber == 0)) {
-                        if (this.isRenderingEnabled()) {
+                        if (isRenderingEnabled) {
                             this.secondaryOamAddress = 0;
                             this.spriteEvaluationSecondaryOamAddressOverflowed = false;
                         }
@@ -589,7 +584,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                         this.spriteEvaluationStep = 0;
                         this.spriteEvaluationOamReadingCounter = 0;
                         this.spriteEvaluationOriginalPrimaryOamAddressOverflowed = false;
-                        if (this.isRenderingEnabled()) {
+                        if (isRenderingEnabled) {
                             this.primaryOamAddress = 0;
                             this.spriteEvaluationPrimaryOamAddressOverflowed = false;
                             this.sprite0OnThisScanline = this.sprite0OnNextScanline;
@@ -604,7 +599,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                     }
 
                     if (this.dotNumber == 339) {
-                        if (this.isRenderingEnabled()) {
+                        if (isRenderingEnabled) {
                             this.refreshSpriteShiftersSignal.trigger(4, 0);
                         }
                     }
@@ -612,34 +607,39 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 }
             }
             case SECOND -> {
-                if (this.isRenderScanline()) {
+                boolean isRenderingEnabled = this.isRenderingEnabled();
 
-                    if (this.isVisibleDot()) {
-                        this.tickPixelShifter();
-                        this.tickBgFetcher();
+                if (isRenderScanline) {
+
+                    boolean isVisibleDot = this.isVisibleDot();
+                    boolean isVisibleScanline = this.isVisibleScanline();
+
+                    if (isVisibleDot) {
+                        this.tickPixelShifter(isRenderingEnabled, true, isVisibleScanline);
+                        this.tickBgFetcher(isRenderingEnabled);
                     }
 
                     this.refreshSpriteShiftersSignal.tick();
 
-                    if (this.isVisibleScanline()) {
+                    if (isVisibleScanline) {
                         if (this.dotNumber == 0) {
-                            if (this.isRenderingEnabled()) {
+                            if (isRenderingEnabled) {
                                 this.readBytePPU(this.getBackgroundPatternByteAddress(false));
                             }
                         } else if (this.dotNumber >= OAM2_INIT_START && this.dotNumber <= OAM2_INIT_END) {
                             this.tickSecondaryOamClear();
                         } else if (this.dotNumber >= SPRITE_EVAL_START && this.dotNumber <= SPRITE_EVAL_END) {
-                            this.tickSpriteEvaluation();
+                            this.tickSpriteEvaluation(isRenderingEnabled);
                         }
                     }
 
                     if (this.dotNumber >= SPRITE_FETCH_START && this.dotNumber <= SPRITE_FETCH_END) {
-                        this.tickSpriteFetcher();
+                        this.tickSpriteFetcher(isRenderingEnabled);
 
                         this.spriteEvaluationStep = 0;
                         this.spriteEvaluationOamReadingCounter = 0;
                         this.spriteEvaluationOriginalPrimaryOamAddressOverflowed = false;
-                        if (this.isRenderingEnabled()) {
+                        if (isRenderingEnabled) {
                             this.primaryOamAddress = 0;
                             this.spriteEvaluationPrimaryOamAddressOverflowed = false;
                         }
@@ -657,36 +657,36 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                                 this.ppuInit = false;
                             }
                         } else if (this.dotNumber >= 280 && this.dotNumber <= 304) {
-                            if (this.isRenderingEnabled()) {
+                            if (isRenderingEnabled) {
                                 this.copyVerticalPositionBitsToV();
                             }
                         }
                     }
 
                     if (this.dotNumber == SPRITE_EVAL_END) {
-                        if (this.isRenderingEnabled()) {
+                        if (isRenderingEnabled) {
                             this.incrementVerticalPosition();
                         }
                     } else if (this.dotNumber == SPRITE_FETCH_START) {
-                        if (this.isRenderingEnabled()) {
+                        if (isRenderingEnabled) {
                             this.copyHorizontalPositionBitsToV();
                         }
                     } else if (this.dotNumber >= 321 && this.dotNumber <= 336) {
-                        this.tickPixelShifter();
-                        this.tickBgFetcher();
+                        this.tickPixelShifter(isRenderingEnabled, isVisibleDot, isVisibleScanline);
+                        this.tickBgFetcher(isRenderingEnabled);
                     } else if (this.dotNumber == 337) {
-                        if (this.isRenderingEnabled()) {
+                        if (isRenderingEnabled) {
                             this.bgFetcherTileNumber = this.readBytePPU(this.getNametableFetchAddress());
                         }
                     } else if (this.dotNumber == 339) {
-                        if (this.isRenderingEnabled()) {
+                        if (isRenderingEnabled) {
                             this.readBytePPU(this.getNametableFetchAddress());
                         }
                     }
 
                 } else if (this.scanlineNumber == this.vblScanline - 1) {
                     if (this.dotNumber == 0) {
-                        if (this.isRenderingEnabled()) {
+                        if (isRenderingEnabled) {
                             this.readBytePPU(this.getBackgroundPatternByteAddress(false));
                         }
                     }
@@ -711,7 +711,11 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                     if (this.scanlineNumber >= this.scanlinesPerFrame) {
                         this.scanlineNumber = 0;
                         this.frameParity = this.frameParity.getOpposite();
-                        if (this.frameParity.isEven() && this.isRenderingEnabled() && this.doOddFrameDotSkipping) {
+                        // TODO: Use signal for dot skipping.
+                        // Attempt to go with setup where decision to skip dot is taken in dot 339 of the pre-render scanline,
+                        // and dot 0 of the next frame is skipped. Also try using the rendering flag directly from the PPUMASK register
+                        // instead of the delayed internal one
+                        if (this.frameParity.isEven() && isRenderingEnabled && this.doOddFrameDotSkipping) {
                             this.dotNumber = 1;
                             this.dotSkipped = true;
                         }
@@ -727,11 +731,11 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
         if ((V & 0x7000) != 0x7000) {
             this.setV(V + 0x1000);
         } else {
-            V = V & (~0x7000);
+            V &= ~0x7000;
             int y = (V & 0x03E0) >>> 5;
             if (y == 29) {
                 y = 0;
-                V = V ^ 0x0800;
+                V ^= 0x0800;
             } else if (y == 31) {
                 y = 0;
             } else {
@@ -760,10 +764,10 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
     // Assumes called once per full dot, on the second half
     // TODO: Half-dot step this
-    private void tickPixelShifter() {
+    private void tickPixelShifter(boolean isRenderingEnabled, boolean isVisibleDot, boolean isVisibleScanline) {
 
         int paletteRamIndex;
-        if (!this.isRenderingEnabled()) {
+        if (!isRenderingEnabled) {
             int currentVRAMAddress = this.getV() & 0x3FFF;
             if (currentVRAMAddress >= 0x3F00) {
                 paletteRamIndex = this.mapPaletteRamAddress(currentVRAMAddress);
@@ -783,14 +787,11 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 paletteNumber = 0;
             }
 
-            if (this.isVisibleDot() && this.isVisibleScanline()) {
-
-                boolean foundOpaqueSpritePixel = false;
+            if (isVisibleDot && isVisibleScanline) {
+                boolean opaqueSpritePixelFound = false;
                 for (int i = 0; i < 8; i++) {
                     SpriteShifter shifter = this.spriteShifters[i];
-                    int xPositionPositionCounter = shifter.getXPositionCounter();
-
-                    if (xPositionPositionCounter > 0) {
+                    if (shifter.getXPositionCounter() > 0) {
                         shifter.decrementXPositionCounter();
                     } else {
                         int spriteColor = shifter.shiftOutPixel();
@@ -802,8 +803,8 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                             this.signalDispatcher.trigger(this.setSprite0HItSignalId, 6, 0);
                         }
 
-                        if (!foundOpaqueSpritePixel && spriteColor != 0) {
-                            foundOpaqueSpritePixel = true;
+                        if (!opaqueSpritePixelFound && spriteColor != 0) {
+                            opaqueSpritePixelFound = true;
 
                             if (pixelColor == 0 || !shifter.getPriority()) {
                                 pixelColor = spriteColor;
@@ -811,15 +812,13 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                             }
                         }
                     }
-
                 }
             }
 
             paletteRamIndex = pixelColor == 0 ? 0 : (paletteNumber << 2) | pixelColor;
-
         }
 
-        if (!this.isVisibleDot() || !this.isVisibleScanline()) {
+        if (!isVisibleDot || !isVisibleScanline) {
             return;
         }
 
@@ -828,34 +827,27 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
             paletteByte &= 0x30;
         }
 
-        int videoColorIndex = ((this.getEmphasisBits() << 6) | (paletteByte & 0b111111)) * 3;
-        int red = this.palette[videoColorIndex];
-        int green = this.palette[videoColorIndex + 1];
-        int blue = this.palette[videoColorIndex + 2];
-        int argb = (red << 16) | (green << 8) | blue;
-        this.video[this.dotNumber - 1][this.scanlineNumber] = argb;
+        this.video[(this.scanlineNumber * WIDTH) + (this.dotNumber - 1)] = this.compactPalette[(this.getEmphasisBits() << 6) | (paletteByte & 0b111111)];
     }
 
     private int shiftBackgroundRegister(int select) {
         int ret = this.backgroundShiftRegister.get(select);
-        this.backgroundShiftRegister.poll();
-        this.backgroundShiftRegister.offer(0b01);
+        this.backgroundShiftRegister.shiftHead(0b01);
         return ret;
     }
 
     private int shiftAttributeRegister(int select) {
         int ret = this.attributeShiftRegister.get(select);
-        this.attributeShiftRegister.poll();
-        this.attributeShiftRegister.offer(this.attributeRegisterLatch);
+        this.attributeShiftRegister.shiftHead(this.attributeRegisterLatch);
         return ret;
     }
 
     // Assumes called once per full dot, on the second half
     // TODO: Half-dot step this
-    private void tickBgFetcher() {
+    private void tickBgFetcher(boolean isRenderingEnabled) {
         switch (this.bgFetcherStep) {
             case 0 -> {
-                if (this.isRenderingEnabled()) {
+                if (isRenderingEnabled) {
                     this.bgFetcherTileNumber = this.readBytePPU(this.getNametableFetchAddress());
                 }
                 this.bgFetcherStep = 1;
@@ -864,7 +856,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 this.bgFetcherStep = 2;
             }
             case 2 -> {
-                if (this.isRenderingEnabled()) {
+                if (isRenderingEnabled) {
                     int V = this.getV();
                     this.bgFetcherAttributeByte = this.readBytePPU(0x23C0 | (V & 0x0C00) | ((V >>> 4) & 0x38) | ((V >>> 2) & 0x07));
                 }
@@ -874,7 +866,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 this.bgFetcherStep = 4;
             }
             case 4 -> {
-                if (this.isRenderingEnabled()) {
+                if (isRenderingEnabled) {
                     this.bgFetcherPatternTableLow = this.readBytePPU(this.getBackgroundPatternByteAddress(false));
                 }
                 this.bgFetcherStep = 5;
@@ -883,13 +875,13 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 this.bgFetcherStep = 6;
             }
             case 6 -> {
-                if (this.isRenderingEnabled()) {
+                if (isRenderingEnabled) {
                     this.bgFetcherPatternTableHigh = this.readBytePPU(this.getBackgroundPatternByteAddress(true));
                 }
                 this.bgFetcherStep = 7;
             }
             case 7 -> {
-                if (this.isRenderingEnabled()) {
+                if (isRenderingEnabled) {
                     for (int i = 0; i < 8; i++) {
                         int bit = 7 - i;
                         int hi = (this.bgFetcherPatternTableHigh >>> bit) & 1;
@@ -981,12 +973,12 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
     // Assumes called once per full dot, on the second half
     // TODO: Half-dot step this
-    private void tickSpriteEvaluation() {
+    private void tickSpriteEvaluation(boolean isRenderingEnabled) {
         switch (this.spriteEvaluationStep) {
             case 0 -> { // Read cycle
                 this.spriteEvaluationOriginalPrimaryOamAddressOverflowed = this.spriteEvaluationPrimaryOamAddressOverflowed;
                 this.oamBuffer = this.primaryOAM[this.primaryOamAddress];
-                if (this.dotNumber == SPRITE_EVAL_START && this.isRenderingEnabled()) {
+                if (this.dotNumber == SPRITE_EVAL_START && isRenderingEnabled) {
                     this.sprite0OnNextScanline = this.isSpriteYInRange(this.oamBuffer);
                 }
                 if (this.spriteEvaluationOamReadingCounter > 0) {
@@ -996,7 +988,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                     if (this.isSpriteYInRange(this.oamBuffer) && !this.spriteEvaluationPrimaryOamAddressOverflowed) {
                         this.spriteEvaluationOamReadingCounter = 7;
                         this.incrementPrimaryOamAddressLow();
-                        if (this.spriteEvaluationSecondaryOamAddressOverflowed && this.isRenderingEnabled()) {
+                        if (this.spriteEvaluationSecondaryOamAddressOverflowed && isRenderingEnabled) {
                             this.setSpriteOverflowFlag(true);
                         }
                     } else {
@@ -1030,10 +1022,10 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
     // Assumes called once per full dot, on the second half
     // TODO: Half-dot step this
-    private void tickSpriteFetcher() {
+    private void tickSpriteFetcher(boolean isRenderingEnabled) {
         switch (this.spriteFetcherStep) {
             case 0 -> {
-                if (this.isRenderingEnabled()) {
+                if (isRenderingEnabled) {
                     this.bgFetcherTileNumber = this.readBytePPU(this.getNametableFetchAddress());
                 }
 
@@ -1053,7 +1045,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 this.spriteFetcherStep = 2;
             }
             case 2 -> {
-                if (this.isRenderingEnabled()) {
+                if (isRenderingEnabled) {
                     this.bgFetcherTileNumber = this.readBytePPU(this.getNametableFetchAddress());
                 }
 
@@ -1073,7 +1065,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 this.spriteFetcherStep = 4;
             }
             case 4 -> {
-                if (this.isRenderingEnabled()) {
+                if (isRenderingEnabled) {
                     this.spriteFetcherPatternTableLow = this.readBytePPU(this.getSpritePatternByteAddress(false));
                 }
 
@@ -1085,7 +1077,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 this.spriteFetcherStep = 6;
             }
             case 6 -> {
-                if (this.isRenderingEnabled()) {
+                if (isRenderingEnabled) {
                     this.spriteFetcherPatternTableHigh = this.readBytePPU(this.getSpritePatternByteAddress(true));
                 }
 
@@ -1096,7 +1088,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
                 this.oamBuffer = this.secondaryOAM[this.secondaryOamAddress];
                 int spriteFetcherXPosition = this.oamBuffer;
 
-                if (this.isRenderingEnabled()) {
+                if (isRenderingEnabled) {
                     boolean inRange = this.isSpriteYInRange(this.spriteFetcherYPosition);
                     this.spriteShifters[this.spriteShifterInitIndex].initialize(inRange ? this.spriteFetcherPatternTableLow : 0, inRange ? this.spriteFetcherPatternTableHigh : 0, spriteFetcherXPosition, this.spriteFetcherAttributeByte);
                 }
@@ -1255,18 +1247,12 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
     private static class SpriteShifter {
 
-        private final LinkedList<Integer> shiftRegister = new LinkedList<>();
+        private final ShiftRegister shiftRegister = new ShiftRegister(8, 2);
         private int xPosition = 0xFF;
         private int paletteNumber;
         private boolean priority;
 
         private int xPositionCounter = 0xFF;
-
-        private SpriteShifter() {
-            for (int i = 0; i < 8; i++) {
-                this.shiftRegister.add(0b00);
-            }
-        }
 
         private void initialize(int patternBitsLow, int patternBitsHigh, int xPosition, int attributes) {
             this.xPosition = xPosition & 0xFF;
@@ -1306,9 +1292,7 @@ public class RP2C02<E extends NESEmulator> extends VideoGenerator<E> implements 
 
         @SuppressWarnings("ConstantConditions")
         private int shiftOutPixel() {
-            int ret = this.shiftRegister.poll();
-            this.shiftRegister.offer(0b00);
-            return ret;
+            return this.shiftRegister.shiftHead(0b00);
         }
 
     }

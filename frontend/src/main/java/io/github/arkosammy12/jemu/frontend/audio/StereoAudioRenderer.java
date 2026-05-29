@@ -20,20 +20,4 @@ public class StereoAudioRenderer extends AudioRenderer {
         return BYTES_PER_OUTPUT_SAMPLE;
     }
 
-    @Override
-    protected byte[] ensureBufferLength(byte[] buf) {
-        if (buf.length == this.bytesPerFrame) {
-            return buf;
-        }
-
-        byte[] actualBuf = new byte[this.bytesPerFrame];
-        System.arraycopy(buf, 0, actualBuf, 0, buf.length);
-        int frameSize = this.getBytesPerOutputSample();
-        for (int i = buf.length; i < actualBuf.length; i += frameSize) {
-            System.arraycopy(buf, buf.length - frameSize, actualBuf, i, frameSize);
-        }
-
-        return actualBuf;
-    }
-
 }

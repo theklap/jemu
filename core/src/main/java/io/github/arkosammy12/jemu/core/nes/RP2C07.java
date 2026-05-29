@@ -133,6 +133,14 @@ public class RP2C07<E extends NESEmulator> extends RP2C02<E> {
             0x84, 0xa8, 0xaa, 0x81, 0x81, 0x81, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
 
+    private static final int[] PALETTE_2C07_COMPACT = new int[64 * 8];
+
+    static {
+        for (int i = 0; i < PALETTE_2C07_COMPACT.length; i++) {
+            PALETTE_2C07_COMPACT[i] = (PALETTE_2C07_WIKI[i * 3] << 16) | (PALETTE_2C07_WIKI[(i * 3) + 1] << 8) | PALETTE_2C07_WIKI[(i * 3) + 2];
+        }
+    }
+
     // TODO: https://forums.nesdev.org/viewtopic.php?p=304638#p304638
     private static final int PAL_SCANLINES_PER_FRAME = 312;
     private static final int PAL_VBL_SCANLINE = 241;
@@ -163,8 +171,10 @@ public class RP2C07<E extends NESEmulator> extends RP2C02<E> {
     }
 
     @Override
-    protected int[] getPalette() {
-        return PALETTE_2C07_WIKI;
+    protected int[] getCompactPalette() {
+        return PALETTE_2C07_COMPACT;
     }
+
+    // TODO: Reminder that OAM corruption does not happen on PAL!
 
 }

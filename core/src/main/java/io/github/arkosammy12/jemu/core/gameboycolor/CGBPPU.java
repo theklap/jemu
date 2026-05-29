@@ -44,7 +44,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
     @Override
     public int readByte(int address) {
         if (address >= VRAM_START && address <= VRAM_END) {
-            if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
+            if (!Mode.MODE_3_DRAWING.matchesValue(this.getPPUMode()) || !this.getLCDPPUEnable()) {
                 return switch (this.vramBank) {
                     case BANK_0 -> (int) this.vram[address - VRAM_START] & 0xFF;
                     case BANK_1 -> (int) this.vramBank1[address - VRAM_START] & 0xFF;
@@ -60,7 +60,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 };
                 case BGPI_ADDR -> this.backgroundPaletteIndex | 0b01000000;
                 case BGPD -> {
-                    if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
+                    if (!Mode.MODE_3_DRAWING.matchesValue(this.getPPUMode()) || !this.getLCDPPUEnable()) {
                         yield (int) this.bgPaletteRAM[this.getBgPaletteAddress()] & 0xFF;
                     } else {
                         yield 0xFF;
@@ -68,7 +68,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 }
                 case OBPI -> this.objectPaletteIndex | 0b01000000;
                 case OBPD -> {
-                    if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
+                    if (!Mode.MODE_3_DRAWING.matchesValue(this.getPPUMode()) || !this.getLCDPPUEnable()) {
                         yield (int) this.objPaletteRAM[this.getObjPaletteAddress()] & 0xFF;
                     } else {
                         yield 0xFF;
@@ -83,7 +83,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
     @Override
     public void writeByte(int address, int value) {
         if (address >= VRAM_START && address <= VRAM_END) {
-            if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
+            if (!Mode.MODE_3_DRAWING.matchesValue(this.getPPUMode()) || !this.getLCDPPUEnable()) {
                 switch (this.vramBank) {
                     case BANK_0 -> this.vram[address - VRAM_START] = (byte) value;
                     case BANK_1 -> this.vramBank1[address - VRAM_START] = (byte) value;
@@ -94,7 +94,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 case VBK_ADDR -> this.vramBank = (value & 1) != 0 ? VRAMBank.BANK_1 : VRAMBank.BANK_0;
                 case BGPI_ADDR -> this.backgroundPaletteIndex = value & 0xFF;
                 case BGPD -> {
-                    if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
+                    if (!Mode.MODE_3_DRAWING.matchesValue(this.getPPUMode()) || !this.getLCDPPUEnable()) {
                         this.bgPaletteRAM[this.getBgPaletteAddress()] = (byte) value;
                     }
                     if (this.getBgPaletteAddressAutoIncrement()) {
@@ -103,7 +103,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 }
                 case OBPI -> this.objectPaletteIndex = value & 0xFF;
                 case OBPD -> {
-                    if (!Mode.MODE_3_DRAWING.matchesValue(this.getPpuMode()) || !this.getLcdPpuEnable()) {
+                    if (!Mode.MODE_3_DRAWING.matchesValue(this.getPPUMode()) || !this.getLCDPPUEnable()) {
                         this.objPaletteRAM[this.getObjPaletteAddress()] = (byte) value;
                     }
                     if (this.getObjPaletteAddressAutoIncrement()) {
@@ -114,6 +114,11 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 default -> super.writeByte(address, value);
             }
         }
+    }
+
+    @Override
+    protected void checkSTATWriteBug() {
+        // No STAT write bug on CGB
     }
 
     public void checkArmOamBugRead(int address) {
@@ -133,7 +138,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
 
     @Override
     protected void tickBackgroundFifo() {
-        if (this.emulator.isDmgCompatibilityMode()) {
+        if (this.emulator.isDMGCompatibilityMode()) {
             super.tickBackgroundFifo();
             return;
         }
@@ -225,7 +230,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
 
     @Override
     protected void pushBgPixels() {
-         if (this.emulator.isDmgCompatibilityMode()) {
+         if (this.emulator.isDMGCompatibilityMode()) {
              super.pushBgPixels();
              return;
          }
@@ -249,7 +254,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
     @Override
     @SuppressWarnings("DuplicatedCode")
     protected void tickSpriteFifo() {
-        if (this.emulator.isDmgCompatibilityMode()) {
+        if (this.emulator.isDMGCompatibilityMode()) {
             super.tickSpriteFifo();
             return;
         }
@@ -266,7 +271,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
             }
             case 3 -> {
                 boolean objSize = this.getObjectSize();
-                int spriteEntry = this.spriteBuffer[this.spriteFifoCurrentEntryIndex];
+                long spriteEntry = this.spriteBuffer[this.spriteFifoCurrentEntryIndex];
                 int spriteAttributes = getSpriteAttributesFromEntry(spriteEntry);
                 boolean yFlip = getYFlipFromObjAttributes(spriteAttributes);
                 int spriteY = getSpriteYFromSpriteEntry(spriteEntry);
@@ -292,7 +297,7 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 this.spriteFifoStep = 5;
             }
             case 5 -> {
-                int spriteEntry = this.spriteBuffer[this.spriteFifoCurrentEntryIndex];
+                long spriteEntry = this.spriteBuffer[this.spriteFifoCurrentEntryIndex];
                 int spriteX = getSpriteXFromSpriteEntry(spriteEntry);
                 int spriteAttributes = getSpriteAttributesFromEntry(spriteEntry);
                 boolean xFlip = getXFlipFromObjAttributes(spriteAttributes);
@@ -312,13 +317,13 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                     if (colorNumber == 0) {
                         continue;
                     }
-                    Integer currentQueuedPixel = this.spriteFifo.get(i);
-                    if (currentQueuedPixel == null || getCgbColorNumberFromObjPixelEntry(currentQueuedPixel) == 0 || (!this.objectPriorityMode && this.spriteFifoCurrentEntryIndex < getCgbOamIndexForObjPixelEntry(currentQueuedPixel))) {
+                    int currentQueuedPixel = this.spriteFifo.get(i);
+                    if (getCgbColorNumberFromObjPixelEntry(currentQueuedPixel) == 0 || !this.objectPriorityMode && this.spriteFifoCurrentEntryIndex < getCgbOamIndexForObjPixelEntry(currentQueuedPixel)) {
                         this.spriteFifo.set(i, createCgbObjPixelEntry(colorNumber, priority, palette, this.spriteFifoCurrentEntryIndex));
                     }
                 }
 
-                this.spriteBuffer[this.spriteFifoCurrentEntryIndex] = null;
+                this.spriteBuffer[this.spriteFifoCurrentEntryIndex] = -1;
                 this.spriteFifoCurrentEntryIndex = -1;
                 this.spriteFifoStep = 0;
 
@@ -334,11 +339,10 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
         }
 
         int bgPixel = this.backgroundFifo.dequeueInt();
-        Integer objPixel = this.spriteFifo.poll();
-        this.spriteFifo.offer(null);
+        int objPixel = this.spriteFifo.shiftHead(0);
 
         Integer finalPixel;
-        if (this.emulator.isDmgCompatibilityMode()) {
+        if (this.emulator.isDMGCompatibilityMode()) {
             if (!this.getBackgroundAndWindowEnable()) {
                 bgPixel = 0;
             }
@@ -352,18 +356,15 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 finalPixel = null;
             }
 
-            if (objPixel != null) {
-                int objColorNumber = getDmgColorNumberFromObjPixelEntry(objPixel);
-                if (!this.getObjectEnable()) {
-                    objColorNumber = 0;
-                }
-                boolean objPriority = getDmgPriorityForObjPixelEntry(objPixel);
+            int objColorNumber = getDmgColorNumberFromObjPixelEntry(objPixel);
+            if (!this.getObjectEnable()) {
+                objColorNumber = 0;
+            }
+            if (objColorNumber != 0 && !(getDmgPriorityForObjPixelEntry(objPixel) && bgPixel != 0)) {
                 boolean objPalette = getDmgPaletteForObjPixelEntry(objPixel);
-                if (objColorNumber != 0 && !(objPriority && bgPixel != 0)) {
-                    int objPaletteReg = objPalette ? this.objectPalette1 : this.objectPalette0;
-                    int objPaletteIndex = (objPaletteReg >>> (objColorNumber * 2)) & 0b11;
-                    finalPixel = this.getARGBForObjPixelEntry(objPaletteIndex, objPalette ? 1 : 0);
-                }
+                int objPaletteReg = objPalette ? this.objectPalette1 : this.objectPalette0;
+                int objPaletteIndex = (objPaletteReg >>> (objColorNumber * 2)) & 0b11;
+                finalPixel = this.getARGBForObjPixelEntry(objPaletteIndex, objPalette ? 1 : 0);
             }
         } else {
             int bgColor = getCgbColorNumberFromBgPixelEntry(bgPixel);
@@ -373,7 +374,6 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
             if (!this.getBackgroundAndWindowEnable()) {
                 bgColor = 0;
             }
-
             finalPixel = this.getARGBForBgPixelEntry(getCgbColorNumberFromBgPixelEntry(bgPixel), bgPalette);
 
             int bgDiscardTarget = this.scrollX % 8;
@@ -382,26 +382,22 @@ public class CGBPPU<E extends GameBoyColorEmulator> extends DMGPPU<E> {
                 finalPixel = null;
             }
 
-            if (objPixel != null) {
-                boolean objPriority = getDmgPriorityForObjPixelEntry(objPixel);
-                int objColor = getCgbColorNumberFromObjPixelEntry(objPixel);
-                if (!this.getObjectEnable()) {
-                    objColor = 0;
-                }
-                int objPalette = getCgbPaletteFromObjPixelEntry(objPixel);
-                if (objColor != 0 && (!this.getBackgroundAndWindowEnable() || bgColor == 0 || (!bgPriority && !objPriority))) {
-                    finalPixel = this.getARGBForObjPixelEntry(objColor, objPalette);
-                }
+            int objColor = getCgbColorNumberFromObjPixelEntry(objPixel);
+            if (!this.getObjectEnable()) {
+                objColor = 0;
+            }
+            if (objColor != 0 && (!this.getBackgroundAndWindowEnable() || bgColor == 0 || (!bgPriority && !getDmgPriorityForObjPixelEntry(objPixel)))) {
+                finalPixel = this.getARGBForObjPixelEntry(objColor, getCgbPaletteFromObjPixelEntry(objPixel));
             }
         }
 
+        // TODO: Emulate color shown in the LCD during CPU STOP mode depending on which mode the STOP mode lands on. Same for DMG
         if (finalPixel != null) {
             if (this.pixelX >= 8 && this.enablePixelWrites) {
-                this.lcd[this.pixelX - 8][this.scanlineNumber] = finalPixel;
+                this.lcd[(this.scanlineNumber * WIDTH) + (this.pixelX - 8)] = finalPixel;
             }
             this.pixelX++;
         }
-
     }
 
     private int getARGBForBgPixelEntry(int colorNumber, int palette) {

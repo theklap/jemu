@@ -13,7 +13,7 @@ module frontend {
     exports io.github.arkosammy12.jemu.frontend.gui.swing;
     exports io.github.arkosammy12.jemu.frontend.gui.swing.events;
     exports io.github.arkosammy12.jemu.frontend.gui.swing.commands;
-    exports io.github.arkosammy12.jemu.frontend.gui.swing.menus;
+    exports io.github.arkosammy12.jemu.frontend.gui.swing.managers;
     exports io.github.arkosammy12.jemu.frontend.audio;
 
 }

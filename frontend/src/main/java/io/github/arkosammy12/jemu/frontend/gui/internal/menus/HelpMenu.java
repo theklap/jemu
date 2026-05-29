@@ -1,8 +1,9 @@
-package io.github.arkosammy12.jemu.frontend.gui.swing.menus;
+package io.github.arkosammy12.jemu.frontend.gui.internal.menus;
 
 import com.formdev.flatlaf.util.SystemInfo;
 import io.github.arkosammy12.jemu.frontend.gui.swing.MainWindow;
 import io.github.arkosammy12.jemu.frontend.gui.swing.MenuBarMenu;
+import io.github.arkosammy12.jemu.frontend.gui.swing.managers.HelpManager;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -10,7 +11,7 @@ import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.net.URI;
 
-public class HelpMenu extends MenuBarMenu {
+public class HelpMenu extends MenuBarMenu implements HelpManager {
 
     @NotNull
     private String projectName = "unknown";
@@ -73,9 +74,6 @@ public class HelpMenu extends MenuBarMenu {
         sourceItem.setMnemonic(KeyEvent.VK_S);
         sourceItem.addActionListener(_ -> {
             try {
-                if (this.projectSourceLink == null) {
-                    throw new IllegalStateException("No project source link specified!");
-                }
                 Desktop.getDesktop().browse(new URI(this.projectSourceLink));
             } catch (Exception ex) {
                 mainWindow.showDialog("Unable to open source link", ex.getMessage(), MainWindow.DialogType.ERROR);
@@ -86,9 +84,6 @@ public class HelpMenu extends MenuBarMenu {
         reportItem.setMnemonic(KeyEvent.VK_R);
         reportItem.addActionListener(_ -> {
             try {
-                if (this.projectBugReportLink == null) {
-                    throw new IllegalStateException("No project bug report link specified!");
-                }
                 Desktop.getDesktop().browse(new URI(this.projectBugReportLink));
             } catch (Exception ex) {
                 mainWindow.showDialog("Unable to open bug report link", ex.getMessage(), MainWindow.DialogType.ERROR);
@@ -100,30 +95,41 @@ public class HelpMenu extends MenuBarMenu {
 
     }
 
+    @Override
     public void setProjectName(@NotNull String projectName) {
         this.projectName = projectName;
     }
 
+    public @NotNull String getProjectName() {
+        return this.projectName;
+    }
+
+    @Override
     public void setAuthorString(@NotNull String authorString) {
         this.authorString = authorString;
     }
 
+    @Override
     public void setVersionString(@NotNull String versionString) {
         this.versionString = versionString;
     }
 
+    @Override
     public void setCommitIDString(@NotNull String commitIdString) {
         this.commitIDString = commitIdString;
     }
 
+    @Override
     public void setBuildDateString(@NotNull String buildDateString) {
         this.buildDateString = buildDateString;
     }
 
+    @Override
     public void setProjectSourceLink(@NotNull String projectSourceLink) {
         this.projectSourceLink = projectSourceLink;
     }
 
+    @Override
     public void setProjectBugReportLink(@NotNull String projectBugReportLink) {
         this.projectBugReportLink = projectBugReportLink;
     }

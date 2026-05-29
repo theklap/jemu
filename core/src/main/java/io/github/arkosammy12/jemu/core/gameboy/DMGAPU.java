@@ -36,7 +36,6 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
     public static final int NR51_ADDR = 0xFF25;
     public static final int NR52_ADDR = 0xFF26;
 
-
     public static final int WAVERAM_START = 0xFF30;
     public static final int WAVERAM_END = 0xFF3F;
 
@@ -47,12 +46,13 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
     private static final int UNUSED_BITS_NR32 = 0b10011111;
     private static final int UNUSED_BITS_NR52 = 0b01110000;
 
-    private static final float MAX_VOLUME = 15.0f;
-    private static final float SAMPLE_SCALE = 127.0f;
-    private static final double CAPACITOR_CONSTANT = 0.999958;
+    private static final double MAX_VOLUME = 15.0f;
+    private static final double SAMPLE_SCALE = Short.MAX_VALUE;
+    private static final double HIGH_PASS_CAPACITOR_CONSTANT = 0.999958;
+    private static final double LOW_PASS_CAPACITOR_CONSTANT = 0.01664;
 
-    private final byte[] leftChannelSamples = new byte[GameBoyEmulator.T_CYCLES_PER_FRAME];
-    private final byte[] rightChannelSamples = new byte[GameBoyEmulator.T_CYCLES_PER_FRAME];
+    private final short[] leftChannelSamples = new short[GameBoyEmulator.T_CYCLES_PER_FRAME];
+    private final short[] rightChannelSamples = new short[GameBoyEmulator.T_CYCLES_PER_FRAME];
     private int currentSampleIndex = 0;
 
     private int frameSequencerStep;
@@ -66,8 +66,11 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
     protected final DMGAPU<?>.Channel3 channel3;
     protected final Channel4 channel4 = new Channel4();
 
-    private double leftCapacitor = 0;
-    private double rightCapacitor = 0;
+    private double leftHighPassFilterCapacitor = 0;
+    private double rightHighPassFilterCapacitor = 0;
+
+    private double leftLowPassFilterCapacitor = 0;
+    private double rightLowPassFilterCapacitor = 0;
 
     public DMGAPU(E emulator) {
         super(emulator);
@@ -138,9 +141,9 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
                     boolean newApuPower = this.getMasterAudioEnable();
 
                     if (!oldApuPower && newApuPower) {
-                        this.onApuOn();
+                        this.onAPUOn();
                     } else if (oldApuPower && !newApuPower) {
-                        this.onApuOff();
+                        this.onAPUOff();
                     }
                 }
                 default -> throw new EmulatorException("Invalid address $%04X for GameBoy APU!".formatted(address));
@@ -148,7 +151,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
         }
     }
 
-    protected void onApuOn() {
+    protected void onAPUOn() {
         this.emulator.getTimerController().onAPUPowerOn();
         this.frameSequencerStep = 0;
         this.channel1.waveDutyIndex = 0;
@@ -160,7 +163,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
     }
 
     @SuppressWarnings("DuplicatedCode")
-    protected void onApuOff() {
+    protected void onAPUOff() {
         this.channel1.nr10 = 0;
         this.channel1.nrx1 = 0;
         this.channel1.setNRX2(0);
@@ -194,7 +197,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
 
     @Override
     public AudioGenerator.@NotNull SampleSize getBytesPerSample() {
-        return SampleSize.BYTES_1;
+        return SampleSize.BYTES_2;
     }
 
     @Override
@@ -207,7 +210,7 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
         AudioDriver audioDriver = optionalAudioDriver.get();
         int samplesPerFrame = audioDriver.getSamplesPerFrame();
 
-        byte[] out = new byte[samplesPerFrame * 2];
+        byte[] out = new byte[samplesPerFrame * 4];
         double step = (double) GameBoyEmulator.T_CYCLES_PER_FRAME / (double) samplesPerFrame;
         double pos = 0.0;
 
@@ -215,8 +218,13 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
             int index = Math.toIntExact(Math.round(pos));
             int nextIndex = Math.min(index + 1, GameBoyEmulator.T_CYCLES_PER_FRAME - 1);
 
-            out[i * 2] = this.leftChannelSamples[nextIndex];
-            out[(i * 2) + 1] = this.rightChannelSamples[nextIndex];
+            short left = this.leftChannelSamples[nextIndex];
+            short right = this.rightChannelSamples[nextIndex];
+
+            out[i * 4] = (byte) (((int) left >> 8) & 0xFF);
+            out[(i * 4) + 1] = (byte) ((int) left & 0xFF);
+            out[(i * 4) + 2] = (byte) (((int) right >> 8) & 0xFF);
+            out[(i * 4) + 3] = (byte) ((int) right & 0xFF);
 
             pos += step;
         }
@@ -283,28 +291,36 @@ public class DMGAPU<E extends GameBoyEmulator> extends AudioGenerator<E> impleme
 
             boolean dacEnable = this.channel1.getDacEnable() || this.channel2.getDacEnable() || this.channel3.getDacEnable() || this.channel4.getDacEnable();
 
-            this.leftChannelSamples[this.currentSampleIndex] = (byte) (this.highPassFilterLeft(left, dacEnable) * SAMPLE_SCALE);
-            this.rightChannelSamples[this.currentSampleIndex] = (byte) (this.highPassFilterRight(right, dacEnable) * SAMPLE_SCALE);
+            this.leftChannelSamples[this.currentSampleIndex] = (short) Math.clamp((long)(this.leftBandPass(left, dacEnable) * SAMPLE_SCALE), Short.MIN_VALUE, Short.MAX_VALUE);
+            this.rightChannelSamples[this.currentSampleIndex] = (short) Math.clamp((long)(this.rightBandPass(right, dacEnable) * SAMPLE_SCALE), Short.MIN_VALUE, Short.MAX_VALUE);
             this.currentSampleIndex = (this.currentSampleIndex + 1) % GameBoyEmulator.T_CYCLES_PER_FRAME;
         }
     }
 
-    private double highPassFilterLeft(double in, boolean dacEnable) {
-        double out = 0;
+    private double leftBandPass(double in, boolean dacEnable) {
         if (dacEnable) {
-            out = in - this.leftCapacitor;
-            this.leftCapacitor = in - out * CAPACITOR_CONSTANT;
+            this.leftHighPassFilterCapacitor = in - (in - this.leftHighPassFilterCapacitor) * HIGH_PASS_CAPACITOR_CONSTANT;
+            double out = this.leftLowPassFilterCapacitor + LOW_PASS_CAPACITOR_CONSTANT * ((in - this.leftHighPassFilterCapacitor) - this.leftLowPassFilterCapacitor);
+            this.leftLowPassFilterCapacitor = out;
+            return out;
+        } else {
+            this.leftLowPassFilterCapacitor = 0;
+            this.leftHighPassFilterCapacitor = 0;
+            return 0;
         }
-        return out;
     }
 
-    private double highPassFilterRight(double in, boolean dacEnable) {
-        double out = 0;
+    private double rightBandPass(double in, boolean dacEnable) {
         if (dacEnable) {
-            out = in - this.rightCapacitor;
-            this.rightCapacitor = in - out * CAPACITOR_CONSTANT;
+            this.rightHighPassFilterCapacitor = in - (in - this.rightHighPassFilterCapacitor) * HIGH_PASS_CAPACITOR_CONSTANT;
+            double out = this.rightLowPassFilterCapacitor + LOW_PASS_CAPACITOR_CONSTANT * ((in - this.rightHighPassFilterCapacitor) - this.rightLowPassFilterCapacitor);
+            this.rightLowPassFilterCapacitor = out;
+            return out;
+        } else {
+            this.rightLowPassFilterCapacitor = 0;
+            this.rightHighPassFilterCapacitor = 0;
+            return 0;
         }
-        return out;
     }
 
     private void tickFrameSequencer() {

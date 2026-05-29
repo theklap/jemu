@@ -4,6 +4,7 @@ module core {
     requires org.jctools.core;
     requires org.jetbrains.annotations;
     requires org.tinylog.api;
+    requires org.apache.commons.collections4;
 
     exports io.github.arkosammy12.jemu.core.common;
     exports io.github.arkosammy12.jemu.core.cosmacvip;

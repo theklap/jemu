@@ -290,7 +290,7 @@ public class CGBBus<E extends GameBoyColorEmulator> extends DMGBus<E> {
                 case RP_ADDR -> this.infraredPort | 0b00111100;
                 case UNK_1_ADDR -> this.unknownRegister1;
                 case UNK_2_ADDR -> this.unknownRegister2;
-                case UNK_3_ADDR -> this.emulator.isDmgCompatibilityMode() ? 0xFF : this.unknownRegister3;
+                case UNK_3_ADDR -> this.emulator.isDMGCompatibilityMode() ? 0xFF : this.unknownRegister3;
                 case UNK_4_ADDR -> this.unknownRegister4 | 0b10001111;
                 case VDMA_1, VDMA_2, VDMA_3, VDMA_4 -> 0xFF;
                 case VDMA_5 -> this.vdmaControl;

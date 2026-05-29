@@ -4,6 +4,9 @@ import io.github.arkosammy12.jemu.core.common.VideoGenerator;
 
 public class CDP1861<E extends CosmacVIPEmulator> extends VideoGenerator<E> {
 
+    protected static final int IMAGE_WIDTH = 256;
+    private static final int IMAGE_HEIGHT = 128;
+
     private static final int SCANLINES_PER_FRAME = 262;
     protected static final int MACHINE_CYCLES_PER_SCANLINE = 14;
 
@@ -22,7 +25,7 @@ public class CDP1861<E extends CosmacVIPEmulator> extends VideoGenerator<E> {
     protected static final int DMAO_BEGIN = 4;
     private static final int DMAO_END = 12;
 
-    protected final int[][] displayBuffer;
+    protected final int[] displayBuffer;
     protected long cycles;
     protected int scanlineIndex;
 
@@ -34,17 +37,17 @@ public class CDP1861<E extends CosmacVIPEmulator> extends VideoGenerator<E> {
 
     public CDP1861(E emulator) {
         super(emulator);
-        this.displayBuffer = new int[this.getImageWidth()][this.getImageHeight()];
+        this.displayBuffer = new int[this.getImageWidth() * this.getImageHeight()];
     }
 
     @Override
     public int getImageWidth() {
-        return 256;
+        return IMAGE_WIDTH;
     }
 
     @Override
     public int getImageHeight() {
-        return 128;
+        return IMAGE_HEIGHT;
     }
 
     public boolean getInterruptSignal() {
@@ -105,7 +108,7 @@ public class CDP1861<E extends CosmacVIPEmulator> extends VideoGenerator<E> {
                 break;
             }
             for (int j = 0; j < 4; j++) {
-                this.displayBuffer[(col * 4) + j][row] = (value & mask) != 0 ? 0xFFFFFF : 0x000000;
+                this.displayBuffer[(row * IMAGE_WIDTH) + (col * 4) + j] = (value & mask) != 0 ? 0xFFFFFF : 0x000000;
             }
         }
     }

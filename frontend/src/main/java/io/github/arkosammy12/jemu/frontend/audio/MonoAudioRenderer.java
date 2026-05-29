@@ -20,20 +20,4 @@ public class MonoAudioRenderer extends AudioRenderer {
         return BYTES_PER_OUTPUT_SAMPLE;
     }
 
-    @Override
-    protected byte[] ensureBufferLength(byte[] buf) {
-        if (buf.length == this.bytesPerFrame) {
-            return buf;
-        }
-        byte[] actualBuf = new byte[this.bytesPerFrame];
-        System.arraycopy(buf, 0, actualBuf, 0, buf.length);
-
-        byte lastSample = buf[buf.length - 1];
-        for (int i = buf.length; i < actualBuf.length; i++) {
-            actualBuf[i] = lastSample;
-        }
-        return actualBuf;
-    }
-
-
 }

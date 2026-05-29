@@ -1800,7 +1800,7 @@ public class SM83<S extends SM83.SystemBus> implements Processor {
                             machineCycleIndex = 1;
                         }
                         case 1 -> {
-                            systemBus.getBus().writeByte(getHL(), getZ() & (~(1 << 7)));
+                            systemBus.getBus().writeByte(getHL(), getZ() & (~(1 << y)));
                             machineCycleIndex = 2;
                         }
                         case 2 -> {
@@ -1813,14 +1813,14 @@ public class SM83<S extends SM83.SystemBus> implements Processor {
                 }
             }
             case 3 -> {
-                if (z == 6) {
+                if (z == 6) { // SET y, (HL)
                     switch (machineCycleIndex) {
                         case 0 -> {
                             setZ(systemBus.getBus().readByte(getHL()));
                             machineCycleIndex = 1;
                         }
                         case 1 -> {
-                            systemBus.getBus().writeByte(getHL(), Processor.setBit(getZ(), 1 << y));
+                            systemBus.getBus().writeByte(getHL(), getZ() | (1 << y));
                             machineCycleIndex = 2;
                         }
                         case 2 -> {
@@ -1828,7 +1828,7 @@ public class SM83<S extends SM83.SystemBus> implements Processor {
                         }
                     }
                 } else { // SET y, r[z]
-                    setR(z, Processor.setBit(getR(z), 1 << y));
+                    setR(z, getR(z) | (1 << y));
                     machineCycleIndex = TERMINATE_INSTRUCTION;
                 }
             }

@@ -4,8 +4,4 @@ public interface Processor {
 
     int cycle();
 
-    static int setBit(int value, int mask) {
-        return value | mask;
-    }
-
 }

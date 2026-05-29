@@ -73,6 +73,10 @@ public class DMGTimerController<E extends GameBoyEmulator> implements Bus {
         }
     }
 
+    public int getSystemClock() {
+        return this.systemClock;
+    }
+
     // It is assumed that this is called once per M-cycle, after the Processor performs the action of the current cycle, but before it fetches (if instruction ended), or polls for interrupts (if any)
     public boolean cycle() {
         this.reloadOccurred = false;

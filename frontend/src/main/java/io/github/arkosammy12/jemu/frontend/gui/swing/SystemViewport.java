@@ -14,7 +14,7 @@ import java.util.function.Supplier;
 public class SystemViewport {
 
     private final JPanel viewportPanel;
-    private JPanel systemDisplayPanel;
+    private Component systemDisplayPanel;
 
     public SystemViewport() {
         MigLayout viewportPanelLayout = new MigLayout(new LC().insets("0"));
@@ -38,29 +38,31 @@ public class SystemViewport {
         return this.viewportPanel;
     }
 
-    public void setSystemDisplayPanel(@Nullable Supplier<JPanel> displaySupplier) {
+    public void setSystemDisplay(@Nullable Supplier<Component> displaySupplier) {
         SwingUtilities.invokeLater(() -> {
             if (this.systemDisplayPanel != null) {
                 this.viewportPanel.remove(this.systemDisplayPanel);
+                this.systemDisplayPanel = null;
             }
+
             if (displaySupplier != null) {
                 this.systemDisplayPanel = displaySupplier.get();
                 this.systemDisplayPanel.setFocusable(true);
-                this.systemDisplayPanel.setOpaque(true);
                 this.systemDisplayPanel.setBackground(Color.BLACK);
+                this.systemDisplayPanel.setMinimumSize(new Dimension(0, 0));
                 this.systemDisplayPanel.addMouseListener(new MouseAdapter() {
-
                     @Override
                     public void mousePressed(MouseEvent e) {
                         SwingUtilities.invokeLater(systemDisplayPanel::requestFocusInWindow);
                     }
-
                 });
                 this.viewportPanel.add(this.systemDisplayPanel, "grow, push");
                 SwingUtilities.invokeLater(this.systemDisplayPanel::requestFocusInWindow);
             }
+
             this.viewportPanel.revalidate();
             this.viewportPanel.repaint();
+
         });
     }
 

@@ -14,8 +14,8 @@ public class CGBAPU<E extends GameBoyColorEmulator> extends DMGAPU<E> {
     }
 
     @Override
-    protected void onApuOn() {
-        super.onApuOn();
+    protected void onAPUOn() {
+        super.onAPUOn();
         this.channel1.lengthTimer = 0;
         this.channel2.lengthTimer = 0;
         this.channel3.lengthTimer = 0;

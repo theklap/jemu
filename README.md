@@ -4,6 +4,7 @@ Multi-system emulator written in Java.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Java](https://img.shields.io/badge/Java-25-blue)
+[![Build](https://github.com/ArkoSammy12/jemu/actions/workflows/build.yml/badge.svg)](https://github.com/ArkoSammy12/jemu/actions/workflows/build.yml)
 
 ## Supported systems
 

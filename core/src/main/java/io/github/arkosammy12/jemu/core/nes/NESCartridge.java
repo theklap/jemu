@@ -26,6 +26,7 @@ public abstract class NESCartridge<E extends NESEmulator> implements Bus {
 
     public static <E extends NESEmulator> NESCartridge<E> getCartridge(E emulator, INESFile iNESFile) {
         int mapperNumber = iNESFile.getMapperNumber();
+        int subMapperNumber = iNESFile.getSubmapperNumber();
         return switch (mapperNumber) {
             case 0 -> new NROMCartridge<>(emulator, iNESFile);
             case 1 -> new MMC1Cartridge<>(emulator, iNESFile);
@@ -41,6 +42,24 @@ public abstract class NESCartridge<E extends NESEmulator> implements Bus {
             case 7 -> new AxROMCartridge<>(emulator, iNESFile);
             case 9 -> new MMC2Cartridge<>(emulator, iNESFile);
             case 10 -> new MMC4Cartridge<>(emulator, iNESFile);
+            // TODO: For VRC2 and VRC4 iNES compatibility, place registers in two places to satisfy both submapper possibilities for a single iNES mapper
+            case 21 -> switch (subMapperNumber) {
+                case 1, 2 -> new VRC4Cartridge<>(emulator, iNESFile);
+                default -> throw new EmulatorException("Invalid iNES mapper %d and submapper number %d combination!".formatted(mapperNumber, subMapperNumber));
+            };
+            case 22 -> {
+                if (subMapperNumber == 0) {
+                    yield new VRC2Cartridge<>(emulator, iNESFile);
+                } else {
+                    throw new EmulatorException("Invalid iNES mapper %d and submapper number %d combination!".formatted(mapperNumber, subMapperNumber));
+                }
+            }
+            case 23, 25 -> switch (subMapperNumber) {
+                case 1, 2 -> new VRC4Cartridge<>(emulator, iNESFile);
+                case 3 -> new VRC2Cartridge<>(emulator, iNESFile);
+                default -> throw new EmulatorException("Invalid iNES mapper %d and submapper number %d combination!".formatted(mapperNumber, subMapperNumber));
+            };
+            case 24, 26 -> new VRC6Cartridge<>(emulator, iNESFile);
             case 71 -> new INESMapper71Cartridge<>(emulator, iNESFile);
             case 218 -> new INESMapper218Cartridge<>(emulator, iNESFile);
             default -> throw new EmulatorException("Unimplemented iNES mapper number %d!".formatted(mapperNumber));
@@ -65,6 +84,10 @@ public abstract class NESCartridge<E extends NESEmulator> implements Bus {
 
     public void observePPUAddress(int address) {
 
+    }
+
+    public double mixAPUAudio(double apuOutput) {
+        return apuOutput;
     }
 
     protected int readByteVRAM(int address) {
